@@ -1,0 +1,28 @@
+.service-box {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.service-box:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.01);
+}
+
+.service-icon {
+    font-size: 2rem;
+    transition: color 0.3s ease;
+}
+
+.service-box:hover .service-icon {
+    color: #007bff;
+}
+
+.service-box h5 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.service-box p {
+    font-size: 1rem;
+    color: #666;
+}

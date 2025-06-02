@@ -1,0 +1,11 @@
+.react-tel-input {
+  display: inline-flex !important;
+  align-items: center;
+  border: 1px solid #ced4da;
+  border-radius: 0.375rem;
+  padding: 0;
+  height: 38px;
+  box-sizing: border-box;
+  width: 100%;
+  background-color: #fff;
+}

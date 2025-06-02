@@ -1,0 +1,41 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+/backend/public
+/backend/.env
+/backend/temp.txt
+/backend/node_modules
+/frontend/node_modules
+/frontend/src/pages/temp.jsx
+/frontend/src/pages/test.jsx
+/frontend/src/pages/temp.txt
+/frontend/src/structure.txt
+/frontend/src/TODO.txt
+/frontend/src/temp.html
+/frontend/.gitignore
+/frontend/.env
+/frontend/README.md
+
+/temp
+
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

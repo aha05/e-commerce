@@ -1,0 +1,12 @@
+.setting-item {
+  padding: 12px 16px;
+  width: 35%;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+.setting-item:hover {
+  background-color: #e2e6ea;
+}

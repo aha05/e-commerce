@@ -1,0 +1,45 @@
+/* Profile Image Styling */
+.testimonial-box img.rounded-circle {
+    width: 50px; /* Size of the profile image */
+    height: 50px;
+    object-fit: cover; /* Ensures the image fits within the circle */
+    border: 3px solid #007bff; /* Border color around profile image */
+}
+
+/* Product Image Styling */
+.testimonial-box img.rounded {
+    width: 100px; /* Size of the product image */
+    height: 100px;
+    object-fit: cover; /* Ensures the image fits well inside the container */
+    border-radius: 10px; /* Slightly rounded corners */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow for the product image */
+}
+
+/* Hover Effect for Product Image */
+.testimonial-box img.rounded:hover {
+    transform: scale(1.05); /* Slight zoom-in effect */
+    transition: transform 0.3s ease;
+}
+.review-card {
+    position: relative;
+    transition: transform 0.5s ease-in-out, filter 0.5s ease-in-out;
+    opacity: 0.9;
+}
+
+.center-card {
+    transform: scale(1.1);
+    filter: none;
+    z-index: 2;
+    opacity: 1;
+}
+
+.blurred {
+    filter: blur(1px);
+    transform: scale(0.9);
+    opacity: 0.6;
+    z-index: 1;
+}
+
+.star-rating i {
+    font-size: 15px;
+}

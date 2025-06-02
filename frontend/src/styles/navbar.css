@@ -1,0 +1,36 @@
+.navbar-nav .nav-link.active {
+    font-weight: bold;
+    color: #0d6efd !important;
+  }
+
+  .icon-btn {
+    font-size: 1.2rem;
+    color: #333;
+    transition: 0.2s;
+    margin-right: 15px;
+  }
+
+  .icon-btn:hover {
+    color: #0d6efd;
+  }
+
+  .badge {
+    font-size: 0.65rem !important;;
+  }
+
+  .carousel-item img {
+    height: 400px;
+    width: 100%;
+  }
+
+  @media (max-width: 768px) {
+    .carousel-item img {
+      height: 250px;
+    }
+  }
+
+  /* Hero Section Background */
+  .hero-section {
+    background: linear-gradient(to right, #fefefe, #e8f0ff);
+    padding: 4rem 0;
+  }
