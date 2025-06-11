@@ -1,4 +1,4 @@
-
+const express = require('express');
 const passport = require('passport');
 const Category = require('../models/Category');
 const Product = require('../models/Product');
@@ -6,7 +6,11 @@ const Promotion = require('../models/Promotion');
 const User = require('../Models/User');
 const Cart = require('../models/Cart');
 const Order = require('../models/Order');
+const { notifyUser } = require('../utils/notifyUser');
 const { convertPrice } = require('../utils/currencyConverter');
+const UserSettings = require('../models/UserSettings');
+
+
 
 async function Reviews() {
     try {
@@ -64,30 +68,37 @@ async function applyDiscount(products) {
         endDate: { $gte: now },
     });
 
-    // handle both single and multiple products
-    const isSinge = !Array.isArray(products);
-    products = !Array.isArray(products) ? [products] : products;
+    // Handle both single and multiple products
+    const isSingle = !Array.isArray(products);
+    products = isSingle ? [products] : products;
 
-    // Apply matching promotion to each product
     const productsWithDiscount = products.map(product => {
         const promo = autoPromotions.find(p => p.product.toString() === product._id.toString());
 
-        const discountAmount = promo
-            ? (product.price * promo.discountPercentage) / 100
-            : 0;
-
-        const discount = promo ? product.price - discountAmount : product.price;
-
         const discountPercentage = promo ? promo.discountPercentage : 0;
+
+        // Helper to apply discount
+        const applyDiscountToPrice = (price) =>
+            promo ? price - (price * discountPercentage) / 100 : price;
+
+        // Apply discount to product price
+        const discountedProductPrice = applyDiscountToPrice(product.price);
+
+        // Apply discount to each variant, if any
+        const discountedVariants = product.variants?.map(variant => ({
+            ...variant,
+            price: applyDiscountToPrice(variant.price),
+        })) || [];
 
         return {
             ...product,
-            price: discount,
-            discountPercentage
+            price: discountedProductPrice,
+            discountPercentage,
+            variants: discountedVariants,
         };
     });
 
-    return isSinge ? productsWithDiscount[0] : productsWithDiscount;
+    return isSingle ? productsWithDiscount[0] : productsWithDiscount;
 }
 
 exports.getIndex = async (req, res) => {
@@ -123,7 +134,7 @@ exports.getPromotion = async (req, res) => {
             isActive: true,
             startDate: { $lte: now },
             endDate: { $gte: now },
-            type: ['code','hybrid']
+            type: ['code', 'hybrid']
         })
             .sort({ createdAt: -1 })
             .populate('product');
@@ -178,39 +189,33 @@ exports.getAllPromotions = async (req, res) => {
     res.json({ promotions: updatedPromotions });
 }
 
+
+
 exports.getTest = async (req, res) => {
-    const orderNumber = "ORD1748798843768";
-    // 1. Find the order and populate product details
-    const order = await Order.findOne({ orderNumber }).populate('items.productId');
-    const formattedProducts = order.items.map(p => ({
-        ...p.productId.toObject(),
-        price: convertPrice(p.productId.price, req.currency),
-        currency: req.currency
-    }));
+    const users = await User.getUsersWithRole('all');
 
-    const productsWithDiscount = await applyDiscount(formattedProducts);
-    const updatedItems = order.items.map(item => {
-        const discountedProduct = productsWithDiscount.find(
-            p => p._id.toString() === item.productId._id.toString()
-        );
-        return {
-            productId: discountedProduct,
-            quantity: item.quantity,
-            _id: item._id
-        };
-    });
+    const notifications = await Promise.all(
+        users.map(user =>
+            notifyUser({
+                username: user.username,
+                userId: user._id,
+                type: 'test',
+                title: 'Test notification',
+                message: `Test notification`,
+                meta: {
+                    email: user.email,
+                    phone: (user.phone).toString() || '',
+                    productId: "test",
+                    link: '#',
+                },
+            })
+        )
+    );
 
-    const updatedOrder = {
-        ...order.toObject(),
-        items: updatedItems,
-        orderTotal: convertPrice(order.orderTotal, req.currency),
-        currency: req.currency
-    };
+    res.json(users);
 
-    const user = req.user;
-    console.log(order)
-    res.json({ order: updatedOrder, user });
-}
+};
+
 
 
 

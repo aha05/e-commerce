@@ -89,9 +89,9 @@ const CustomerGrowthChart = () => {
     }, []);
 
     return (
-        <div className="card shadow-sm">
+        <div className="card border-0 shadow-sm">
             <div className="card-body">
-                <h5>Customer Growth</h5>
+                <p className="fs-5">Customer Growth</p>
                 <canvas ref={chartRef}></canvas>
             </div>
         </div>

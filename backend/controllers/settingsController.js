@@ -162,8 +162,7 @@ exports.deletePayment = async (req, res) => {
 }
 
 exports.getNotifications = async (req, res) => {
-    const notifications = await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 });
-
+    const notifications = await Notification.find({ userId: req.user._id, read: false }).sort({ createdAt: -1 });
     res.json(notifications);
 }
 

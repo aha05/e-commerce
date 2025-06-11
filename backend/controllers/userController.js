@@ -4,12 +4,13 @@ const Order = require('../models/Order');
 const bcrypt = require("bcryptjs");
 const { convertPrice } = require('../utils/currencyConverter');
 
+
 // Display user profile page
 exports.getProfile = async (req, res) => {
     try {
         const cart = req.session.cart;
         const user = await User.findById(req.user._id); // Assuming user is authenticated
-        const orders = await Order.find({ userId: req.user._id }); // Find all orders for the user
+        const orders = await Order.find({ userId: req.user._id }).populate('items.productId').sort({ createdAt: -1 }); // Find all orders for the user
 
 
         const updatedOrders = orders.map(order => ({
@@ -17,6 +18,7 @@ exports.getProfile = async (req, res) => {
             orderTotal: convertPrice(order.orderTotal, req.currency),
             currency: req.currency
         }));
+
         res.json({ user, orders: updatedOrders, cart })
     } catch (error) {
         console.error('Error loading profile:', error);
@@ -25,7 +27,7 @@ exports.getProfile = async (req, res) => {
 }
 
 exports.editProfile = async (req, res) => {
-    const {
+    let {
         FirstName,
         LastName,
         MiddleName,
@@ -41,6 +43,10 @@ exports.editProfile = async (req, res) => {
         } } = req.body;
     try {
         const user = await User.findOne({ _id: req.params.id });
+        if (phone && !phone.startsWith('+')) {
+            phone = '+' + phone;
+        }
+        
         await User.findByIdAndUpdate(req.params.id, {
             FirstName,
             LastName,
@@ -119,7 +125,6 @@ exports.deleteUser = async (req, res) => {
         res.status(500).send('Server Error');
     }
 }
-
 
 exports.getWishlist = async (req, res) => {
     try {

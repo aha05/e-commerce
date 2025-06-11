@@ -11,6 +11,7 @@ exports.addPromotion = (req, res) => {
 }
 
 exports.addPromotionPost = async (req, res) => {
+
     try {
         const {
             name,
@@ -26,6 +27,7 @@ exports.addPromotionPost = async (req, res) => {
         if (!name || !type || !productId || !discountPercentage || !startDate || !endDate) {
             return res.status(400).json({ error: "Missing required fields" });
         }
+
 
         // Construct base promotion object
         const promotionData = {
@@ -46,6 +48,7 @@ exports.addPromotionPost = async (req, res) => {
         }
 
         const promotion = new Promotion(promotionData);
+
         await promotion.save();
 
         res.status(201).json({ promotion });

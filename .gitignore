@@ -15,6 +15,7 @@
 /backend/.env
 /backend/temp.txt
 /backend/node_modules
+/backend/logs
 /frontend/node_modules
 /frontend/src/pages/temp.jsx
 /frontend/src/pages/test.jsx

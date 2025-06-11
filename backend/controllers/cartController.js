@@ -1,5 +1,4 @@
 // routes/cartRoutes.js
-
 const express = require('express');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
@@ -19,58 +18,195 @@ async function applyDiscount(products) {
         endDate: { $gte: now },
     });
 
-    // handle both single and multiple products
-    products = !Array.isArray(products) ? [products] : products;
+    // Handle both single and multiple products
+    const isSingle = !Array.isArray(products);
+    products = isSingle ? [products] : products;
 
-    // Apply matching promotion to each product
     const productsWithDiscount = products.map(product => {
         const promo = autoPromotions.find(p => p.product.toString() === product._id.toString());
 
-        const discountAmount = promo
-            ? (product.price * promo.discountPercentage) / 100
-            : 0;
-
-        const discount = promo ? product.price - discountAmount : product.price;
-
         const discountPercentage = promo ? promo.discountPercentage : 0;
+
+        // Helper to apply discount
+        const applyDiscountToPrice = (price) =>
+            promo ? price - (price * discountPercentage) / 100 : price;
+
+        // Apply discount to product price
+        const discountedProductPrice = applyDiscountToPrice(product.price);
+
+        // Apply discount to each variant, if any
+        const discountedVariants = product.variants?.map(variant => ({
+            ...variant,
+            price: applyDiscountToPrice(variant.price),
+        })) || [];
 
         return {
             ...product,
-            price: discount,
-            discountPercentage
+            price: discountedProductPrice,
+            discountPercentage,
+            variants: discountedVariants,
         };
     });
 
-    return productsWithDiscount;
+    return isSingle ? productsWithDiscount[0] : productsWithDiscount;
 }
+
+async function cartItemWithSelectedVariant(cart, products) {
+    const detailedCart = [];
+
+    for (const cartItem of cart.items) {
+        const product = products.find(p => p._id.equals(cartItem.productId._id));
+        if (!product) continue;
+
+        let variantData = null;
+
+        // Normalize variants and cart attributes
+        if (cartItem.attributes && product.variants?.length > 0) {
+            const normalizedVariants = product.variants.map(variant => {
+                const normalizedAttrs = variant.attributes instanceof Map
+                    ? Object.fromEntries(variant.attributes)
+                    : variant.attributes;
+                return {
+                    ...variant.toObject?.() ?? variant,
+                    attributes: normalizedAttrs
+                };
+            });
+
+            const normalizedCartAttrs = cartItem.attributes instanceof Map
+                ? Object.fromEntries(cartItem.attributes)
+                : cartItem.attributes;
+
+            variantData = normalizedVariants.find(variant =>
+                Object.entries(normalizedCartAttrs).every(
+                    ([key, value]) => variant.attributes?.[key] === value
+                )
+            ) || null;
+        }
+
+        const variantAttrs = variantData?.attributes || {};
+        const image = variantData?.image || product.image;
+        const price = variantData?.price || product.price;
+        const stock = variantData?.stock || product.stock;
+
+        // Check if same product + same attributes already in detailedCart
+        const existingIndex = detailedCart.findIndex(item =>
+            item._id.equals(product._id) &&
+            JSON.stringify(item.attributes || {}) === JSON.stringify(variantAttrs)
+        );
+
+        if (existingIndex !== -1) {
+            // Update quantity if the same variant exists
+            detailedCart[existingIndex].quantity += cartItem.quantity;
+        } else {
+            // Add new cart item
+            detailedCart.push({
+                ...product.toObject(),
+                quantity: cartItem.quantity,
+                attributes: variantAttrs,
+                variants: [],
+                image,
+                price,
+                stock,
+            });
+        }
+    }
+
+    return detailedCart;
+}
+
+// Normalize attributes (Map → Object)
+const normalizeAttributes = (attrs) => {
+    if (!attrs) return {};
+    if (attrs instanceof Map) return Object.fromEntries(attrs);
+    if (typeof attrs.toObject === 'function') return attrs.toObject();
+    return { ...attrs };
+};
+
+const isSameAttributes = (a, b) => {
+    const normA = normalizeAttributes(a);
+    const normB = normalizeAttributes(b);
+
+    const keysA = Object.keys(normA);
+    const keysB = Object.keys(normB);
+
+    if (keysA.length !== keysB.length) return false;
+
+    return keysA.every(key => normA[key]?.trim?.() === normB[key]?.trim?.());
+};
 
 // GET cart details for logged-in user
 exports.getCart = async (req, res) => {
     try {
         if (!req.user) {
-            const productIds = req.session.cart.map(item => item.productId);
+            if (!req.session.cart || req.session.cart.length === 0) {
+                return res.json({ cart: [], user: null, currency: req.currency });
+            }
 
+            const productIds = req.session.cart.map(item => item.productId);
             const products = await Product.find({ _id: { $in: productIds } }).populate('category');
 
-            const detailedCart = req.session.cart.map(item => {
-                const product = products.find(p => p._id.toString() === item.productId);
-                return product
-                    ? {
-                        ...product.toObject(), // Convert Mongoose document to plain object
-                        quantity: item.quantity,
-                    }
-                    : null;
-            }).filter(item => item !== null); // Remove items not found in the database
-            const user = req.user;
+            const detailedCart = [];
+
+            for (const cartItem of req.session.cart) {
+                const product = products.find(p => p._id.toString() === cartItem.productId);
+                if (!product) continue;
+
+                let variantData = null;
+
+                if (cartItem.attributes && product.variants?.length > 0) {
+                    const normalizedVariants = product.variants.map(variant => {
+                        const normalizedAttrs = variant.attributes instanceof Map
+                            ? Object.fromEntries(variant.attributes)
+                            : variant.attributes;
+
+                        return {
+                            ...variant.toObject?.() ?? variant,
+                            attributes: normalizedAttrs
+                        };
+                    });
+
+                    variantData = normalizedVariants.find(variant =>
+                        Object.entries(cartItem.attributes).every(
+                            ([key, value]) => variant.attributes?.[key] === value
+                        )
+                    ) || null;
+                }
+
+                const variantAttrs = variantData?.attributes || {};
+                const image = variantData?.image || product.image;
+                const price = variantData?.price || product.price;
+                const stock = variantData?.stock || product.stock;
+
+                // Merge quantities if same product + attributes exists already
+                const existingIndex = detailedCart.findIndex(item =>
+                    item._id.toString() === product._id.toString() &&
+                    JSON.stringify(item.attributes || {}) === JSON.stringify(variantAttrs)
+                );
+
+                if (existingIndex !== -1) {
+                    detailedCart[existingIndex].quantity += cartItem.quantity;
+                } else {
+                    detailedCart.push({
+                        ...product.toObject(),
+                        quantity: cartItem.quantity,
+                        attributes: variantAttrs,
+                        variants: [],
+                        image,
+                        price,
+                        stock
+                    });
+                }
+            }
 
             const formattedProducts = detailedCart.map(p => ({
                 ...p,
                 price: convertPrice(p.price, req.currency),
                 currency: req.currency
             }));
+
             const productsWithDiscount = await applyDiscount(formattedProducts);
 
-            res.json({ cart: productsWithDiscount, user });
+            res.json({ cart: productsWithDiscount, user: null, currency: req.currency });
         } else {
 
             const cart = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
@@ -78,16 +214,8 @@ exports.getCart = async (req, res) => {
 
             const products = await Product.find({ _id: { $in: productIds } }).populate('category');
 
-            const detailedCart = cart?.items?.map(cartItem => {
-                const product = products?.find(item => item?._id?.equals(cartItem?.productId?._id));
+            const detailedCart = await cartItemWithSelectedVariant(cart, products)
 
-                return product
-                    ? {
-                        ...product.toObject(), // Convert Mongoose document to plain object
-                        quantity: cartItem.quantity,
-                    }
-                    : null;
-            }).filter(cartItem => cartItem !== null); // Remove items not found in the database
             const user = req.user;
 
             const formattedProducts = detailedCart.map(p => ({
@@ -99,6 +227,7 @@ exports.getCart = async (req, res) => {
             const productsWithDiscount = await applyDiscount(formattedProducts);
             const settings = await UserSettings.findOne({ userId: req.user._id });
             const currency = settings.preferences.currency;
+
             res.json({ cart: productsWithDiscount, user, currency });
         }
 
@@ -108,251 +237,346 @@ exports.getCart = async (req, res) => {
     }
 };
 
-
 // Add product to cart
 exports.addToCart = async (req, res) => {
+    let { productId, quantity = 1, attributes = {} } = req.body;
 
-    const { productId, quantity = 1 } = req.body;
     try {
         if (!req.user) {
-            // Ensure the session has a cart
-            if (!req.session.cart) {
-                req.session.cart = [];
+            // Ensure session cart is initialized
+            if (!req.session.cart) req.session.cart = [];
+
+            const product = await Product.findOne({ _id: productId });
+            if (!product) return res.status(404).send('Product not found');
+
+            const parsedQuantity = parseInt(quantity);
+
+            if ((!attributes || Object.keys(attributes).length === 0) && product?.variants[0]?.attributes) {
+                attributes = Object.fromEntries(product?.variants[0]?.attributes);
             }
 
-            // Add product to the cart or update quantity if it exists
-            const existingItemIndex = req.session.cart.findIndex(item => item.productId === productId);
+            console.log(attributes);
 
-            if (existingItemIndex > -1) {
-                // Update quantity of existing product
-                req.session.cart[existingItemIndex].quantity += parseInt(quantity);
+            const existingItem = req.session.cart.find(item =>
+                item.productId === productId &&
+                isSameAttributes(item.attributes || {}, attributes)
+            );
+
+            // Determine total desired quantity
+            const totalQuantity = existingItem
+                ? existingItem.quantity + parsedQuantity
+                : parsedQuantity;
+
+            // Variant stock check
+            const variant = attributes && Object.keys(attributes).length > 0
+                ? product.variants?.find(v =>
+                    Object.entries(attributes).every(
+                        ([k, vVal]) => v.attributes?.get(k) === vVal
+                    )
+                )
+                : null;
+
+            const stockToCheck = variant ? variant.stock : product.stock;
+
+            if (totalQuantity > stockToCheck) {
+                const available = stockToCheck - (existingItem?.quantity || 0);
+                return res.status(400).send(`Insufficient stock! Only ${available} left.`);
+            }
+
+            // Add or update item in session cart
+            if (existingItem) {
+                existingItem.quantity += parsedQuantity;
             } else {
-                // Add new product to the cart
-                req.session.cart.push({ productId, quantity: parseInt(quantity) });
+                req.session.cart.push({
+                    productId,
+                    quantity: parsedQuantity,
+                    attributes
+                });
             }
 
-            // Extract product IDs from the cart
-            const productIds = req.session.cart.map(item => item.productId);
-
-            // Query the database for product details
-            const products = await Product.find({ _id: { $in: productIds } }).populate('category');
-
-            // Map product details with quantities from the session cart
-            const detailedCart = req.session.cart.map(item => {
-                const product = products.find(p => p._id.toString() === item.productId);
-                return product
-                    ? {
-                        ...product.toObject(), // Convert Mongoose document to plain object
-                        quantity: item.quantity,
-                    }
-                    : null;
-            }).filter(item => item !== null); // Remove items not found in the database
-
-            // Save the session after modification
-            req.session.save((err) => {
+            req.session.save(err => {
                 if (err) {
-                    console.error('Error saving session:', err);
-                    return res.status(500).send('Error saving session');
+                    console.error('Session Save Error:', err);
+                    return res.status(500).send('Session Error');
                 }
-                // Render the updated cart
-                res.redirect('/cart');
+
+                res.status(200).json({ success: true });
             });
 
-
-        } else {
+        }
+        else {
             let cart = await Cart.findOne({ userId: req.user._id });
+            if (!cart) cart = new Cart({ userId: req.user._id, items: [] });
 
-            // Check if there is available in stock.
-            if (cart) {
-                let productInCart = {};
+            const product = await Product.findOne({ _id: productId });
+            if (!product) return res.status(404).send('Product not found');
 
-                const product = await Product.findOne({ _id: productId });
-
-                cart.items.forEach(item => {
-                    if (item.productId == productId) {
-                        productInCart = item;
-                    }
-                });
-
-                const amount = parseInt(productInCart.quantity) + parseInt(quantity);
-                const stock = parseInt(product.stock);
-                if (amount > stock) {
-                    let available = stock - parseInt(productInCart.quantity);
-                    if (available < 0) {
-                        available = 0;
-                    }
-                    return res.status(500).send(`Sorry, There is no enough stock!, Available ${available}`);
-                }
+            if ((!attributes || Object.keys(attributes).length === 0) && product?.variants[0]?.attributes) {
+                attributes = Object.fromEntries(product?.variants[0]?.attributes);
             }
 
-            if (!cart) {
-                cart = new Cart({ userId: req.user._id, items: [] });
-            }
+            console.log(attributes);
 
-            // Check if product already exists in cart
-            const existingItem = cart.items.find(item => item.productId == productId);
+
+            const existingItem = cart.items.find(item =>
+                item.productId.toString() === productId &&
+                isSameAttributes(item.attributes || {}, attributes)
+            );
+
+            // Stock check
+            const totalQuantity = existingItem
+                ? existingItem.quantity + parseInt(quantity)
+                : parseInt(quantity);
+
+            const variant =
+                attributes && Object.keys(attributes).length > 0
+                    ? product.variants?.find(v =>
+                        Object.entries(attributes).every(
+                            ([k, vVal]) => v.attributes?.get(k) === vVal
+                        )
+                    )
+                    : null;
+
+            const stockToCheck = variant ? variant.stock : product.stock;
+            if (totalQuantity > stockToCheck) {
+                const available = stockToCheck - (existingItem?.quantity || 0);
+                return res.status(400).send(`Insufficient stock! Only ${available} left.`);
+            }
 
             if (existingItem) {
                 existingItem.quantity += parseInt(quantity);
             } else {
-                cart.items.push({ productId, quantity: parseInt(quantity) });
+                cart.items.push({ productId, quantity: parseInt(quantity), attributes });
             }
 
             await cart.save();
-            res.redirect('/cart');
+
+            res.status(200).json({ success: true });
         }
     } catch (err) {
+        console.error(err);
         res.status(500).send('Error adding product to cart');
     }
 };
 
 exports.setCart = async (req, res) => {
-    const { productId, quantity } = req.body;
+
+    const { productId, quantity, attribute = {} } = req.body;
+
     try {
         if (!req.user) {
-            const cartItemIndex = req.session.cart.findIndex(item => item.productId === productId);
-            if (quantity >= 0) {
-                req.session.cart[cartItemIndex].quantity = quantity;
+            const cart = req.session.cart || [];
 
+            const product = await Product.findById(productId);
+            if (!product) {
+                return res.status(404).json({ message: 'Product not found' });
+            }
+
+            const normalizedCartAttrs = normalizeAttributes(attribute);
+
+            const variant = product.variants?.find(variant => {
+                const variantAttrs = normalizeAttributes(variant.attributes);
+                return Object.entries(normalizedCartAttrs).every(
+                    ([key, value]) => variantAttrs[key] === value
+                );
+            });
+
+            const stockToCheck = variant ? variant.stock : product.stock;
+
+            if (quantity > stockToCheck) {
+                return res.status(400).json({ message: `Insufficient stock! Only ${stockToCheck} available.` });
+            }
+
+            const itemIndex = cart.findIndex(item =>
+                item.productId === productId &&
+                isSameAttributes(item.attributes, attribute)
+            );
+
+            if (itemIndex === -1) {
+                return res.status(404).json({ message: 'Item not found in cart' });
+            }
+
+            if (quantity >= 1) {
+                cart[itemIndex].quantity = quantity;
             } else {
-                req.session.cart = (req.session.cart || []).filter(item => item.productId !== productId);
-            }
-            const cart = req.session.cart;
-            res.json({ success: true, cart });
-
-        } else {
-            // Find the user's cart
-            const cart = await Cart.findOne({ userId: req.user._id });
-            if (cart) {
-                let productInCart = {};
-
-                const product = await Product.findOne({ _id: productId });
-                cart.items.forEach(item => {
-                    if (item.productId == productId) {
-                        productInCart = item;
-                    }
-                });
-
-                const stock = parseInt(product.stock);
-
-                if (parseInt(quantity) > stock) {
-                    let available = stock - parseInt(quantity);
-                    if (available < 0) {
-                        available = 0;
-                    }
-                    return res.status(400).json({ message: `Sorry, There is no enough stock! Available ${stock}` });
-                }
+                cart.splice(itemIndex, 1); // Remove item
             }
 
-            if (!cart) return res.status(404).json({ message: 'Cart not found' });
+            req.session.cart = cart;
+            return res.json({ success: true, cart });
+        }
+        // Logged-in user
+        let cart = await Cart.findOne({ userId: req.user._id });
+        if (!cart) return res.status(404).json({ message: 'Cart not found' });
 
-            // Find the item in the cart
-            const item = cart.items.find(i => i.productId.toString() === productId);
-            if (!item) return res.status(404).json({ message: 'Item not found in cart' });
+        const itemIndex = cart.items.findIndex(item =>
+            item.productId.toString() === productId &&
+            isSameAttributes(item.attributes, attribute)
+        );
 
-            // Update quantity based on action
-            if (quantity) {
-                item.quantity = quantity;
-            } else {
-                // Optionally handle removal if quantity is 1 and action is 'subtract'
-                cart.items = cart.items.filter(i => i.productId.toString() !== productId);
-            }
-
-            await cart.save();
-            res.json({ success: true, cart });
+        if (itemIndex === -1) {
+            return res.status(404).json({ message: 'Item not found in cart' });
         }
 
+        const product = await Product.findById(productId);
+        if (!product) return res.status(404).json({ message: 'Product not found' });
+
+        // Stock check
+        const normalizedCartAttrs = normalizeAttributes(attribute);
+
+        const variant = product.variants?.find(variant => {
+            const variantAttrs = normalizeAttributes(variant.attributes);
+            return Object.entries(normalizedCartAttrs).every(
+                ([key, value]) => variantAttrs[key] === value
+            );
+        });
+
+        const stockToCheck = variant ? variant.stock : product.stock;
+
+        if (quantity > stockToCheck) {
+            return res.status(400).json({ message: `Insufficient stock! Only ${stockToCheck} available.` });
+        }
+
+        // Update or remove item
+        if (quantity >= 1) {
+            cart.items[itemIndex].quantity = quantity;
+        } else {
+            cart.items.splice(itemIndex, 1);
+        }
+
+        await cart.save();
+        res.json({ success: true, cart });
 
     } catch (error) {
-        console.error('Error updating cart quantity:', error);
+        console.error('Error updating cart:', error);
         res.status(500).json({ message: 'Error updating cart' });
     }
-}
+};
 
 exports.updateCart = async (req, res) => {
-    const { productId, action } = req.body;
+    const { productId, action, attribute } = req.body;
     try {
+        const normalizedAttr = normalizeAttributes(attribute);
+
         if (!req.user) {
-            const cartItemIndex = req.session.cart.findIndex(item => item.productId === productId);
-            if (action === 'add') {
-                req.session.cart[cartItemIndex].quantity += 1;
+            req.session.cart = req.session.cart || [];
+            const product = await Product.findById(productId);
+            const itemIndex = req.session.cart.findIndex(item =>
+                item.productId === productId && isSameAttributes(item.attributes, normalizedAttr)
+            );
 
-            } else if (action === 'subtract' && req.session.cart[cartItemIndex].quantity > 1) {
-                req.session.cart[cartItemIndex].quantity -= 1;
-            } else {
-                req.session.cart = (req.session.cart || []).filter(item => item.productId !== productId);
+            if (itemIndex === -1) {
+                return res.status(404).json({ message: 'Item not found in cart' });
             }
-            const cart = req.session.cart;
-            res.json({ success: true, cart });
 
-        } else {
-            // Find the user's cart
-            const cart = await Cart.findOne({ userId: req.user._id });
-            if (cart) {
-                let productInCart = {};
+            const normalizedCartAttrs = normalizeAttributes(attribute);
 
-                const product = await Product.findOne({ _id: productId });
-                cart.items.forEach(item => {
-                    if (item.productId == productId) {
-                        productInCart = item;
-                    }
-                });
-                const amount = parseInt(productInCart.quantity);
-                const stock = parseInt(product.stock);
-                if (amount >= stock && action === 'add') {
-                    let available = stock - parseInt(productInCart.quantity);
-                    if (available < 0) {
-                        available = 0;
-                    }
-                    return res.status(500).send(`Sorry, There is no enough stock!, Available ${available}`);
+            const variant = product.variants?.find(variant => {
+                const variantAttrs = normalizeAttributes(variant.attributes);
+                return Object.entries(normalizedCartAttrs).every(
+                    ([key, value]) => variantAttrs[key] === value
+                );
+            });
+
+            const stock = variant ? variant.stock : product.stock;
+            const cartItem = req.session.cart[itemIndex];
+            const currentQty = cartItem.quantity;
+
+            if (action === 'add') {
+                if (currentQty >= stock) {
+                    return res.status(400).json({ message: `Insufficient stock! Only ${stock} available.` });
                 }
-            }
-
-            if (!cart) return res.status(404).json({ message: 'Cart not found' });
-
-            // Find the item in the cart
-            const item = cart.items.find(i => i.productId.toString() === productId);
-            if (!item) return res.status(404).json({ message: 'Item not found in cart' });
-
-            // Update quantity based on action
-            if (action === 'add') {
-                item.quantity += 1;
-            } else if (action === 'subtract' && item.quantity > 1) {
-                item.quantity -= 1;
+                req.session.cart[itemIndex].quantity += 1;
+            } else if (action === 'subtract' && req.session.cart[itemIndex].quantity > 1) {
+                req.session.cart[itemIndex].quantity -= 1;
             } else {
-                // Optionally handle removal if quantity is 1 and action is 'subtract'
-                cart.items = cart.items.filter(i => i.productId.toString() !== productId);
+                req.session.cart.splice(itemIndex, 1);
             }
 
-            await cart.save();
-            res.json({ success: true, cart });
+            return res.json({ success: true, cart: req.session.cart });
         }
 
+        // Logged-in user
+        const cart = await Cart.findOne({ userId: req.user._id });
+        if (!cart) return res.status(404).json({ message: 'Cart not found' });
+
+
+        const product = await Product.findById(productId);
+        if (!product) return res.status(404).json({ message: 'Product not found' });
+
+        const itemIndex = cart.items.findIndex(item =>
+            item.productId.toString() === productId && isSameAttributes(item.attributes, normalizedAttr)
+        );
+
+
+        if (itemIndex === -1) {
+            return res.status(404).json({ message: 'Item not found in cart' });
+        }
+
+        // Stock check
+        const normalizedCartAttrs = normalizeAttributes(attribute);
+
+        const variant = product.variants?.find(variant => {
+            const variantAttrs = normalizeAttributes(variant.attributes);
+            return Object.entries(normalizedCartAttrs).every(
+                ([key, value]) => variantAttrs[key] === value
+            );
+        });
+
+        const stock = variant ? variant.stock : product.stock;
+        const cartItem = cart.items[itemIndex];
+        const currentQty = cartItem.quantity;
+
+        if (action === 'add') {
+            if (currentQty >= stock) {
+                return res.status(400).json({ message: `Sorry, not enough stock! Available: ${stock}` });
+            }
+            cartItem.quantity += 1;
+        } else if (action === 'subtract' && currentQty > 1) {
+            cartItem.quantity -= 1;
+        } else {
+            cart.items.splice(itemIndex, 1);
+        }
+
+        await cart.save();
+        res.json({ success: true, cart });
 
     } catch (error) {
         console.error('Error updating cart quantity:', error);
         res.status(500).json({ message: 'Error updating cart' });
     }
-}
+};
 
-// Remove item from cart
 exports.removeCart = async (req, res) => {
-    const { productId } = req.body;
+    const { productId, attribute } = req.body;
 
     try {
         if (!req.user) {
-            req.session.cart = (req.session.cart || []).filter(item => item.productId !== productId);
+            req.session.cart = (req.session.cart || []).filter(item =>
+                item.productId !== productId || attribute ? !isSameAttributes(item.attributes, attribute) : false
+            );
         } else {
-            let cart = await Cart.findOne({ userId: req.user._id });
+            const cart = await Cart.findOne({ userId: req.user._id });
+            if (cart) {
+                if (attribute) {
+                    cart.items = cart.items.filter(item =>
+                        item.productId.toString() !== productId || !isSameAttributes(item.attributes, attribute)
+                    );
+                } else {
+                    cart.items = cart.items.filter(item =>
+                        item.productId.toString() !== productId
+                    );
+                }
 
-            cart.items = cart.items.filter(item => item.productId != productId);
-
-            await cart.save();
+                await cart.save();
+            }
         }
         res.redirect('/cart');
     } catch (err) {
+        console.error('Remove Cart Error:', err);
         res.status(500).send('Error removing item from cart');
     }
 };
+
 
 

@@ -12,6 +12,12 @@ const CartPage = () => {
     const [currency, setCurrency] = useState('USD')
     const [quantities, setQuantities] = useState({});
 
+
+    const getItemKey = (productId, attributes = {}) => {
+        const sortedAttrs = Object.entries(attributes).sort();
+        return `${productId}-${sortedAttrs.map(([k, v]) => `${k}:${v}`).join('|')}`;
+    };
+
     useEffect(() => {
         fetchCart();
     }, []);
@@ -21,8 +27,14 @@ const CartPage = () => {
             const response = await axios.get("/api/cart"); // Fetch cart data from backend
             setCart(response.data.cart);
             setQuantities(
-                Object.fromEntries(response.data.cart.map(item => [item._id, item.quantity]))
+                Object.fromEntries(
+                    response.data.cart.map(item => [
+                        getItemKey(item.productId, item.attributes),
+                        item.quantity
+                    ])
+                )
             );
+
             calculateTotal(response.data.cart);
             setCurrency(response?.data?.currency);
         } catch (error) {
@@ -35,24 +47,25 @@ const CartPage = () => {
         setTotalPrice(total.toFixed(2));
     };
 
-    const updateCart = async (productId, action) => {
+    const updateCart = async (productId, action, attribute = {}) => {
         try {
-            const response = await axios.post("/api/cart/update", { productId, action });
+            const response = await axios.post("/api/cart/update", { productId, action, attribute });
             if (response.data.success) {
                 fetchCart(); // Refresh cart data
             }
         } catch (error) {
-            console.error("Error updating cart:", error);
+            toastr.warning(error.response?.data?.message || "Failed to update cart!");
         }
     };
 
-    const handleQuantityChange = async (productId, newQuantity) => {
+    const handleQuantityChange = async (productId, newQuantity, attribute = {}) => {
         if (!newQuantity || newQuantity < 1) return; // Avoid zero or negative
 
         try {
             const response = await axios.post("/api/cart/set", {
                 productId,
                 quantity: newQuantity,
+                attribute,
             });
 
             if (response.data.success) {
@@ -66,13 +79,12 @@ const CartPage = () => {
     };
 
 
-    const removeItem = async (productId) => {
+    const removeItem = async (productId, attribute = {}) => {
         try {
-            await axios.post("/api/cart/remove", { productId });
+            await axios.post("/api/cart/remove", { productId, attribute });
             fetchCart();
         } catch (error) {
-
-            console.error("Error removing item:", error);
+            toastr.warning(error.response?.data?.message || "Failed to delete cart!");
         }
     };
 
@@ -85,36 +97,80 @@ const CartPage = () => {
                     <div className="row">
                         {/* Cart Items Section */}
                         <div className="col-lg-8">
-                            {cart.map((item) => (
-                                <div className="cart-item-card" key={item._id}>
-                                    <img src={`${backendUrl}${item.image}`} alt={item.name} />
-                                    <div className="flex-grow-1">
-                                        <h5>{item.name}</h5>
-                                        <p><strong>Category:</strong> {item.category.name}</p>
-                                        <p><strong>Color:</strong> Black</p>
-                                        <p className="text-success"><strong>In Stock:</strong> {item.stock}</p>
-                                        <p><strong>Price:</strong> {item.price}{item.currency}</p>
+                            {cart.map((item) => {
+                                const itemKey = getItemKey(item.productId, item.attributes);
+
+                                return (
+                                    <div className="cart-item-card" key={itemKey}>
+                                        <img src={`${backendUrl}${item.image}`} alt={item.name} />
+
+                                        <div className="flex-grow-1">
+                                            <h5>{item.name}</h5>
+                                            <p>{item.category.name}</p>
+                                            <p>
+                                                {item?.attributes &&
+                                                    Object.entries(item.attributes).map(([key, value]) => (
+                                                        <span key={key}>
+                                                            <span className="text-secondary visually-hidden">
+                                                                {key.charAt(0).toLowerCase() + key.slice(1)}
+                                                            </span>
+                                                            <span className="fw-bold text-dark"> {value.trim()}</span>{" "}
+                                                        </span>
+                                                    ))}
+                                            </p>
+
+                                            <p className="text-success">
+                                                <strong>{item.stock}</strong>
+                                                <span className="text-secondary"> left in stock</span>
+                                            </p>
+
+                                            <p>{item.price}{item.currency}</p>
+                                        </div>
+
+                                        <div className="quantity-buttons">
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => updateCart(item._id, 'subtract', item.attributes)}
+                                            >
+                                                -
+                                            </button>
+
+                                            <input
+                                                type="text"
+                                                className="form-control"
+                                                value={quantities[itemKey] || ''}
+                                                onChange={(e) => {
+                                                    const newQty = parseInt(e.target.value) || '';
+                                                    setQuantities(prev => ({ ...prev, [itemKey]: newQty }));
+                                                    handleQuantityChange(item._id, newQty, item.attributes);
+                                                }}
+                                            />
+
+                                            <button
+                                                className="btn btn-secondary btn-sm"
+                                                onClick={() => updateCart(item._id, 'add', item.attributes)}
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+
+                                        <div>
+                                            <p>
+                                                <strong>Subtotal:</strong>{" "}
+                                                {(item.price * item.quantity).toFixed(2)}{item.currency}
+                                            </p>
+                                        </div>
+
+                                        <button
+                                            className="btn btn-sm btn-outline-danger ms-2"
+                                            onClick={() => removeItem(item._id, item.attributes)}
+                                        >
+                                            Remove
+                                        </button>
                                     </div>
-                                    <div className="quantity-buttons">
-                                        <button className="btn btn-secondary btn-sm" onClick={() => updateCart(item._id, 'subtract')}>-</button>
-                                        <input
-                                            type="text"
-                                            className="form-control"
-                                            value={quantities[item._id] || ''}
-                                            onChange={(e) => {
-                                                const newQty = parseInt(e.target.value) || '';
-                                                setQuantities(prev => ({ ...prev, [item._id]: newQty }));
-                                                handleQuantityChange(item._id, newQty);
-                                            }}
-                                        />
-                                        <button className="btn btn-secondary btn-sm" onClick={() => updateCart(item._id, 'add')}>+</button>
-                                    </div>
-                                    <div>
-                                        <p><strong>Subtotal:</strong> {(item.price * item.quantity).toFixed(2)}{item.currency}</p>
-                                    </div>
-                                    <button className="btn btn-sm btn-outline-danger ms-2" onClick={() => removeItem(item._id)}>Remove</button>
-                                </div>
-                            ))}
+                                );
+                            })}
+
                         </div>
                         {/* Cart Summary Section */}
                         <div className="col-lg-4">

@@ -31,8 +31,8 @@ const OrderConfirmationModal = ({ show, onClose, order }) => {
                         </p>
                     </div>
 
-                    <div className="bg-light p-2 rounded mb-3">
-                        <small className="text-secondary">Order Number:</small>
+                    <div className="w-100 d-flex bg-light p-2 rounded mb-3 w-100 toe">
+                        <small className="text-secondary me-2">Order Number: </small>
                         <div className="fw-bold" style={{ fontSize: "0.9rem" }}>
                             {order.orderNumber ?? "N/A"}
                         </div>
@@ -47,7 +47,7 @@ const OrderConfirmationModal = ({ show, onClose, order }) => {
                                         className="list-group-item py-1 px-2 d-flex justify-content-between align-items-center"
                                     >
                                         <small>{item.productId?.name} (x{item.quantity})</small>
-                                        <small>{((item?.productId?.price || 0) * (item?.quantity || 1)).toFixed(2)}{item.productId?.currency}</small>
+                                        <small>{((item?.discountPrice || item?.productId?.price || 0) * (item?.quantity || 1)).toFixed(2)}{item.productId?.currency}</small>
                                     </li>
                                 ))}
                                 <li

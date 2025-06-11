@@ -20,7 +20,7 @@ const Report = () => {
 
                 {/* Order Statistics (Pie Chart) */}
                 <div className="col-md-4 mt-4">
-                    <div className="card shadow-sm">
+                    <div className="card border-0 shadow-sm">
                         <OrderStatisticsChart />
                     </div>
                 </div>

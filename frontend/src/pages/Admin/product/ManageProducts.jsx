@@ -59,9 +59,9 @@ const ManageProducts = () => {
 
     return (
         <div className="container my-4">
-            <h3 className="p-2 pb-0 mb-4">
-                Dashboard &gt; <span className="text-primary">Manage Product</span>
-            </h3>
+            <p className="fs-5 text-muted">
+                Dashboard &gt; <span>Manage Product</span>
+            </p>
 
             <div className="row mb-3">
                 <div className="col-md-4">
@@ -90,14 +90,14 @@ const ManageProducts = () => {
                 </div>
             </div>
 
-            <table className="table table-bordered table-striped">
+            <table className="table table-borderless table-striped">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Stock</th>
-                        <th>Actions</th>
+                        <th className="text-muted">Name</th>
+                        <th className="text-muted">Category</th>
+                        <th className="text-muted">Price</th>
+                        <th className="text-muted">Stock</th>
+                        <th className="text-muted">Actions</th>
                     </tr>
                 </thead>
                 <tbody>

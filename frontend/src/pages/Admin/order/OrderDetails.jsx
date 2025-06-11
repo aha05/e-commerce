@@ -25,45 +25,47 @@ const OrderDetails = () => {
 
     return (
         <div className="container my-4">
-            <h1 className="mb-4">Order Details</h1>
+            <p className="mb-4 fs-5">Order Details</p>
 
             {/* Order Summary */}
-            <div className="card mb-4">
-                <div className="card-header">Order Summary</div>
-                <div className="card-body">
-                    <p><strong>Order ID:</strong> {order._id}</p>
-                    <p><strong>Order Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> <span className="badge bg-info text-dark">{order.status}</span></p>
-                    <p><strong>Total:</strong> ${order.orderTotal && order.orderTotal.toFixed(2)}</p>
+            <div className="row container gap-1">
+                <div className="col card border-0 shadow-sm mb-4 me-2">
+                    <div className="card-body">
+                        <p className="fs-6 fw-bold text-muted" >Order Summary</p>
+                        <p><span className="text-muted">Order ID:</span> <span>{order._id}</span></p>
+                        <p><span className="text-muted">Order Date:</span> {new Date(order.createdAt).toLocaleDateString()}</p>
+                        <p><span className="text-muted">Status:</span> <span className="badge bg-info text-dark">{order.status}</span></p>
+                        <p><span className="text-muted">Total:</span> ${order.orderTotal && order.orderTotal.toFixed(2)}</p>
+                    </div>
                 </div>
-            </div>
 
-            {/* Customer Details */}
-            <div className="card mb-4">
-                <div className="card-header">Customer Details</div>
-                <div className="card-body">
-                    <p><strong>Name:</strong> {order.userId ? order.userId.name : "Guest"}</p>
-                    <p><strong>Email:</strong> {order.userId ? order.userId.email : "N/A"}</p>
-                    <p><strong>Shipping Address:</strong></p>
-                    <p>
-                        {order.shippingAddress.fullName} <br />
-                        {order.shippingAddress.address}, {order.shippingAddress.city} <br />
-                        {order.shippingAddress.postalCode}, {order.shippingAddress.country}
-                    </p>
+                {/* Customer Details */}
+                <div className="col card border-0 shadow-sm mb-4 ms-2">
+                    <div>
+                        <p className="fs-6 fw-bold text-muted">Customer Details</p>
+                        <p><span className="text-muted">Name:</span> {order.userId ? order.userId.name : "Guest"}</p>
+                        <p><span className="text-muted">Email:</span> {order.userId ? order.userId.email : "N/A"}</p>
+                        <p><span className="text-muted">Shipping Address:</span></p>
+                        <p>
+                            {order.shippingAddress.fullName} <br />
+                            {order.shippingAddress.address}, {order.shippingAddress.city} <br />
+                            {order.shippingAddress.postalCode}, {order.shippingAddress.country}
+                        </p>
+                    </div>
                 </div>
             </div>
 
             {/* Order Items */}
-            <div className="card mb-4">
-                <div className="card-header">Items in the Order</div>
+            <div className="card border-0 shadow-sm mb-4 me-4">
                 <div className="card-body">
+                    <p className="fs-6 fw-bold text-muted">Items in the Order</p>
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Product</th>
-                                <th>Price</th>
-                                <th>Quantity</th>
-                                <th>Subtotal</th>
+                                <th className="text-muted">Product</th>
+                                <th className="text-muted">Price</th>
+                                <th className="text-muted">Quantity</th>
+                                <th className="text-muted">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -82,7 +84,7 @@ const OrderDetails = () => {
 
             {/* Back Button */}
             <div className="mt-4">
-                <a href="/admin/orders" className="btn btn-secondary">Back to Orders</a>
+                <a href="/admin/orders" className="btn btn-light">Back to Orders</a>
             </div>
         </div>
     );

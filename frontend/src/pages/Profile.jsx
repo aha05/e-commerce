@@ -13,6 +13,7 @@ const backendUrl = import.meta.env.VITE_BACKEND_URL;
 import axios from "axios";
 import "../styles/profile.css"
 import toastr from "toastr";
+import OrderDetailModal from "../components/UI/OrderDetailModal";
 
 
 
@@ -37,6 +38,7 @@ const Profile = () => {
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState("profile");
     const [cart, setCart] = useState([]);
+    const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showPasswordChangeModal, setPasswordChangeModal] = useState(false);
     const [showDeleteModal, setDeleteModal] = useState(false);
@@ -131,8 +133,10 @@ const Profile = () => {
         if (order) {
             const res = await axios.get(`/api/orders/order-confirmation?orderNumber=${order.orderNumber}`);
             setSelectedOrder(res.data.order);
+            setShowOrderDetailModal(true);
         } else {
             setSelectedOrder(order);
+            setShowOrderDetailModal(true);
         }
     };
 
@@ -320,7 +324,6 @@ const Profile = () => {
                 .catch(() => toastr.error("Upload failed"));
         }
     };
-
 
 
     return (
@@ -582,6 +585,7 @@ const Profile = () => {
                         {activeTab === "orders" && (
                             <div>
                                 <h3 className="text-center mb-4">Order History</h3>
+                                <OrderDetailModal show={showOrderDetailModal} onClose={() => setShowOrderDetailModal(false)} selectedOrder={selectedOrder} />
                                 <div className="row">
                                     {orders.map((order) => (
                                         <div className="col-md-6" key={order._id}>
@@ -596,122 +600,11 @@ const Profile = () => {
                                                 >
                                                     View Details
                                                 </button>
+
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-
-                                {selectedOrder && (
-                                    <div className="text-center">
-                                        <div
-                                            className="modal show fade d-block"
-                                            tabIndex="-1"
-                                            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-                                        >
-                                            <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: "570px", margin: "auto" }}>
-                                                <div className="modal-content">
-                                                    <div className="modal-header py-2">
-                                                        <h5 className="modal-title" style={{ fontSize: "1rem" }}>
-                                                            Order Details
-                                                        </h5>
-                                                        <button type="button" className="btn-close" onClick={() => openOrderDetails(null)}></button>
-                                                    </div>
-
-                                                    <div className="modal-body py-3 px-4">
-                                                        <div className="bg-light p-3 rounded mb-3">
-                                                            <div className="row align-items-start">
-
-                                                                {/* Product Info - Right Aligned */}
-                                                                <div className="col-md-4 d-flex flex-column align-items-center">
-                                                                    <h6 className="text-secondary mb-3">Product</h6>
-                                                                    {selectedOrder.items?.length > 0 && (
-                                                                        <div className="d-flex flex-column align-items-center">
-                                                                            <img
-                                                                                src={`${backendUrl}${selectedOrder.items[0].productId?.image}`}
-                                                                                alt={selectedOrder.items[0].productId?.name}
-                                                                                style={{
-                                                                                    width: "60px",
-                                                                                    height: "60px",
-                                                                                    objectFit: "cover",
-                                                                                    borderRadius: "6px",
-                                                                                    marginBottom: "10px",
-                                                                                }}
-                                                                            />
-                                                                            <small className="fw-bold d-block text-center">
-                                                                                {selectedOrder.items[0].productId?.name}
-                                                                            </small>
-                                                                            <small className="text-muted">
-                                                                                {[...Array(Math.floor(selectedOrder.items[0].productId?.averageRating || 0))].map((_, i) => (
-                                                                                    <i key={i} style={{ fontSize: "12px" }} className="fas fa-star text-warning me-1"></i> // Bootstrap star icon
-                                                                                ))}<br /><span style={{ fontSize: "10px" }} className="text-dark">({selectedOrder.items[0].productId?.totalReviews} reviews)</span>
-                                                                            </small>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* Order Info - Left Aligned */}
-                                                                <div className="col-md-8 text-start">
-                                                                    <h6 className="text-secondary mb-3">Order Details</h6>
-                                                                    <small className="text-secondary d-block mb-2">
-                                                                        <strong>Order Number:</strong> {selectedOrder.orderNumber ?? "N/A"}
-                                                                    </small>
-                                                                    <small className="text-secondary d-block mb-2">
-                                                                        <strong>Status:</strong> {selectedOrder.status ?? "N/A"}
-                                                                    </small>
-                                                                    <small className="text-secondary d-block mb-2">
-                                                                        <strong>Payment Method:</strong> {selectedOrder.paymentMethod ?? "N/A"}
-                                                                    </small>
-                                                                    <small className="text-secondary d-block mb-2">
-                                                                        <strong>Placed On:</strong> {new Date(selectedOrder.createdAt).toLocaleString()}
-                                                                    </small>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="row">
-                                                            <div className="col-7 pe-1">
-                                                                <ul className="list-group mb-2 shadow-sm">
-                                                                    {selectedOrder.items?.map((item, idx) => (
-                                                                        <li
-                                                                            key={idx}
-                                                                            className="list-group-item py-1 px-2 d-flex justify-content-between align-items-center"
-                                                                        >
-                                                                            <small>{item.productId?.name} (x{item.quantity})</small>
-                                                                            <small>{((item?.productId?.price || 0) * (item?.quantity || 1)).toFixed(2)}{item.productId?.currency}</small>
-                                                                        </li>
-                                                                    ))}
-                                                                    <li className="list-group-item bg-light d-flex justify-content-between py-1 px-2">
-                                                                        <strong>Total</strong>
-                                                                        <strong>{parseFloat(selectedOrder?.orderTotal || 0).toFixed(2)}{selectedOrder.currency}</strong>
-                                                                    </li>
-                                                                </ul>
-
-                                                                <p className="mb-1" style={{ fontSize: "0.75rem" }}>
-                                                                    <strong>{selectedOrder.shippingAddress?.fullName}</strong><br />
-                                                                    {selectedOrder.shippingAddress?.address}, {selectedOrder.shippingAddress?.city}<br />
-                                                                    {selectedOrder.shippingAddress?.postalCode}, {selectedOrder.shippingAddress?.country}
-                                                                </p>
-                                                                <p className="text-muted" style={{ fontSize: "0.7rem" }}>
-                                                                    <strong>Delivery:</strong> {/* Replace this with actual delivery logic */}
-                                                                    {new Date(new Date(selectedOrder.createdAt).getTime() + 5 * 24 * 60 * 60 * 1000).toLocaleDateString()}
-                                                                </p>
-                                                            </div>
-
-                                                            <div className="col-5 text-center d-flex flex-column align-items-center justify-content-center border-start">
-                                                                <small className="fw-bold mb-1" style={{ fontSize: "0.75rem" }}>Track</small>
-                                                                {/* Replace src with a real QR generator or use <QRCode /> component if available */}
-                                                                <img
-                                                                    src={`https://api.qrserver.com/v1/create-qr-code/?data=https://yourstore.com/track/${selectedOrder.orderNumber}&size=80x80`}
-                                                                    alt="QR Code"
-                                                                />
-                                                                <small className="text-muted mt-1" style={{ fontSize: "0.65rem" }}>Scan to track</small>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         )}
 

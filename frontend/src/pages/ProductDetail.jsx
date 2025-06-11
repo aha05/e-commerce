@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import Header from "../components/Partials/Header";
 import Footer from "../components/Partials/Footer";
+import toastr from "toastr";
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 function ProductDetail() {
@@ -15,53 +15,165 @@ function ProductDetail() {
     const [selectedAttributes, setSelectedAttributes] = useState({});
     const [selectedVariant, setSelectedVariant] = useState(null);
 
+    const navigate = useNavigate();
+
+
     useEffect(() => {
         const fetchData = async () => {
-            await axios.get(`/api/products/${productId}`)
-                .then((response) => {
-                    const data = response.data.product;
-                    setProduct(data);
-                    setCategory(response.data.categories);
-                    setPromotion(response.data.promotions);
-                    setRelatedProducts(response.data.relatedProducts);
+            try {
+                await axios.get(`/api/products/${productId}`)
+                    .then((response) => {
+                        setProduct(response.data.product);
+                        setCategory(response.data.categories);
+                        setPromotion(response.data.promotions);
+                        setRelatedProducts(response.data.relatedProducts);
+                    })
+                    .catch((error) => console.error('Error fetching data:', error));
 
-                    // Initialize attribute selection (first option)
-                    const defaultAttrs = {};
-                    Object.keys(data.attributes || {}).forEach(key => {
-                        defaultAttrs[key] = data.attributes[key][0];
-                    });
-                    setSelectedAttributes(defaultAttrs);
-                })
-                .catch((error) => console.error('Error fetching data:', error));
-
-            await axios.get('/api/index/promotions')
-                .then((response) => {
-                    setPromotion(response.data.promotion);
-                })
+                await axios.get('/api/index/promotions')
+                    .then((response) => {
+                        setPromotion(response.data.promotion);
+                    })
+            } catch (error) {
+                console.error("Failed to fetch product:", error);
+            }
         }
         fetchData();
     }, [productId]);
 
+    // assign featured variant
     useEffect(() => {
-        if (product && product.variants) {
-            const match = product.variants.find(variant =>
-                Object.entries(variant.attributes).every(
-                    ([key, value]) => selectedAttributes[key] === value
-                )
-            );
-            setSelectedVariant(match || null);
+        if (!product || !product.variants || product.variants.length === 0) return;
+
+        const firstVariant = product.variants[0];
+        if (firstVariant && firstVariant.attributes) {
+            let initialAttributes = {};
+
+            // Check if attributes is a Map (from MongoDB it’s usually a plain object)
+            if (firstVariant.attributes instanceof Map) {
+                initialAttributes = Object.fromEntries(firstVariant.attributes);
+            } else {
+                initialAttributes = { ...firstVariant.attributes };
+            }
+
+            setSelectedAttributes(initialAttributes);
         }
+    }, [product]);
+
+    //     if (!product || !product.variants) return;
+
+    //     const matchedVariant = product.variants.find(variant => {
+    //         const variantAttrs = variant.attributes || new Map();
+    //         const selectedKeys = Object.keys(selectedAttributes);
+
+    //         const match = selectedKeys.every(key => {
+    //             const selectedValue = selectedAttributes[key];
+
+    //             // Use .get() for Map
+    //             const variantValue = variantAttrs instanceof Map ? variantAttrs.get(key) : variantAttrs[key];
+
+    //             return selectedValue === variantValue;
+    //         });
+
+    //         // Check that the number of attributes match
+    //         const variantAttrsSize = variantAttrs instanceof Map ? variantAttrs.size : Object.keys(variantAttrs).length;
+    //         const isFullMatch = match && variantAttrsSize === selectedKeys.length;
+
+    //         return isFullMatch;
+    //     });
+
+    //     setSelectedVariant(matchedVariant || null);
+
+    //     if (!matchedVariant) {
+    //         toastr.warning("Variant with this combination is not available.");
+    //     }
+    // }, [selectedAttributes, product]);
+
+    useEffect(() => {
+        if (!product || !product.variants) return;
+        const matchedVariant = product.variants.find(variant => {
+            const variantAttrs = variant.attributes || new Map();
+            const selectedKeys = Object.keys(selectedAttributes);
+
+            const match = selectedKeys.every(key => {
+                const selectedValue = selectedAttributes[key];
+                const variantValue = variantAttrs instanceof Map ? variantAttrs.get(key) : variantAttrs[key];
+                return selectedValue === variantValue;
+            });
+
+            const variantAttrsSize = variantAttrs instanceof Map ? variantAttrs.size : Object.keys(variantAttrs).length;
+            const isFullMatch = match && variantAttrsSize === selectedKeys.length;
+
+            return isFullMatch;
+        });
+
+        setSelectedVariant(matchedVariant || null);
     }, [selectedAttributes, product]);
 
     const handleAttributeChange = (name, value) => {
-        setSelectedAttributes(prev => ({ ...prev, [name]: value }));
+        const updatedAttributes = { ...selectedAttributes, [name]: value };
+        setSelectedAttributes(updatedAttributes);
+
+        if (!product || !product.variants) return;
+
+        const matchedVariant = product.variants.find(variant => {
+            const variantAttrs = variant.attributes || new Map();
+            const selectedKeys = Object.keys(updatedAttributes);
+
+            const match = selectedKeys.every(key => {
+                const selectedValue = updatedAttributes[key];
+                const variantValue = variantAttrs instanceof Map ? variantAttrs.get(key) : variantAttrs[key];
+                return selectedValue === variantValue;
+            });
+
+            const variantAttrsSize = variantAttrs instanceof Map ? variantAttrs.size : Object.keys(variantAttrs).length;
+            const isFullMatch = match && variantAttrsSize === selectedKeys.length;
+
+            return isFullMatch;
+        });
+
+        if (!matchedVariant) {
+            toastr.warning("Variant with this combination is not available.");
+
+        }
     };
+
+    const handleAddToCart = async (product, quantity = 1, attributes = {},) => {
+
+        const productId = product._id;
+        const hasVariants = product?.variants?.length > 0;
+
+        if (hasVariants) {
+            if (!attributes || Object.keys(attributes).length === 0) {
+                toastr.warning("Please select a variant before adding to cart.");
+                return;
+            }
+
+            if (!selectedVariant) {
+                toastr.warning("The selected variant is not available.");
+                return;
+            }
+        }
+
+        try {
+            const res = await axios.post("/api/cart/add", {
+                productId, quantity, attributes
+            });
+            if (res) {
+                navigate('/cart');
+            }
+        } catch (error) {
+            console.log("error", error);
+        }
+    };
+
 
     if (!product) return <div>Loading...</div>;
 
     const fullStars = Math.floor(product.averageRating || 0);
     const hasHalfStar = product.averageRating % 1 >= 0.5;
     const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
 
     return (
         <div>
@@ -107,7 +219,6 @@ function ProductDetail() {
                                 ))}
                             </div>
                         ))}
-
                         <div className="product-detail mt-4">
                             <h5><strong>About this Item:</strong></h5>
                             <p className="text-muted">{product.description}</p>
@@ -120,25 +231,7 @@ function ProductDetail() {
                             <h4 className="font-weight-bold">
                                 {selectedVariant?.price || product.price}{product.currency}
                             </h4>
-
-                            <form action="/api/cart/add" method="POST">
-                                <input type="hidden" name="productId" value={product._id} />
-                                <input
-                                    className="form-control w-25"
-                                    type="hidden"
-                                    name="quantity"
-                                    value="1"
-                                    min="1"
-                                    max={selectedVariant?.stock || product.stock}
-                                />
-                                <button
-                                    className="btn btn-primary w-100 mb-3"
-                                    disabled={(selectedVariant?.stock || product.stock) <= 0}
-                                >
-                                    Add to Cart
-                                </button>
-                            </form>
-
+                            <button className="btn btn-primary w-100" onClick={() => handleAddToCart(product, 1, selectedAttributes)}>Add to Cart</button>
                             <hr />
                             <p className="mt-3"><strong>Shipping:</strong></p>
                             {["Standard", "Express", "Free"].map((method, idx) => (
@@ -197,15 +290,32 @@ function ProductDetail() {
                                     </div>
                                     <div className="card-body">
                                         <h5 className="card-title">{relatedProduct.name}</h5>
-                                        <div className="star-rating">
-                                            ★★★★☆ <small className="text-dark">(200 reviews)</small>
-                                        </div>
+
+                                        <small className="star-rating">
+                                            {[...Array(5)].map((_, i) => {
+                                                const rating = relatedProduct?.averageRating || 0;
+
+                                                return (
+                                                    <i
+                                                        key={i}
+                                                        className={
+                                                            rating >= i + 1
+                                                                ? "fas fa-star text-warning me-1"           // full star
+                                                                : rating >= i + 0.5
+                                                                    ? "fas fa-star-half-alt text-warning me-1"  // half star
+                                                                    : "far fa-star text-warning me-1"           // empty star
+                                                        }
+                                                        style={{ fontSize: "12px" }}
+                                                    ></i>
+                                                );
+                                            })}
+                                            <span className="text-dark">
+                                                ({relatedProduct?.totalReviews || 0} reviews)
+                                            </span>
+                                        </small>
                                         <p className="card-text">{relatedProduct.description.slice(0, 40)}...</p>
                                         <p className="fw-bold">{relatedProduct.price}{relatedProduct.currency}</p>
-                                        <form action="/api/cart/add" method="POST">
-                                            <input type="hidden" name="productId" value={relatedProduct._id} />
-                                            <button className="btn btn-primary w-100">Add to Cart</button>
-                                        </form>
+                                        <button className="btn btn-primary w-100" onClick={() => handleAddToCart(relatedProduct, 1)}>Add to Cart</button>
                                     </div>
                                 </div>
                             </div>

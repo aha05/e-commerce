@@ -14,6 +14,7 @@ const Checkout = () => {
     const [currency, setCurrency] = useState('USD')
     const [settings, setSettings] = useState({});
     const [showModal, setShowModal] = useState(false);
+    const [code, setCode] = useState("")
     const [formData, setFormData] = useState({
         fullName: "",
         address: "",
@@ -154,9 +155,10 @@ const Checkout = () => {
         e.preventDefault();
 
         const orderData = {
-            userId: user ? user._id : '134562',
+            userId: user ? user._id : '',
             shippingAddress: formData,
             paymentMethod: formData.paymentMethod,
+            code
         };
 
         if (!formData.paymentMethod) {
@@ -215,31 +217,46 @@ const Checkout = () => {
                             </div>
                         ))}
                     </div>
-
-                    <h4>Payment Options</h4>
-                    <div className="mb-2">
-                        <select
-                            name="paymentMethod"
-                            value={formData.paymentMethod}
-                            onChange={handleChange}
-                            className="form-select mb-3"
-                        >
-                            {paymentMethods.map((pm, index) => {
-                                const label =
-                                    pm.type === "credit_card"
-                                        ? `Credit Card (****${pm.details.cardLast4})`
-                                        : pm.type === "paypal"
-                                            ? `PayPal (${pm.details.paypalEmail})`
-                                            : `Bank Transfer (${pm.details.bankName})`;
-                                return (
-                                    <option key={index} value={label}>
-                                        {label}
-                                    </option>
-                                );
-                            })}
-                        </select>
+                    <div className="row">
+                        <div className="col-md-6">
+                            <h4>Payment Options</h4>
+                            <div className="mb-2">
+                                <select
+                                    name="paymentMethod"
+                                    value={formData.paymentMethod}
+                                    onChange={handleChange}
+                                    className="form-select mb-3"
+                                >
+                                    {paymentMethods.map((pm, index) => {
+                                        const label =
+                                            pm.type === "credit_card"
+                                                ? `Credit Card (****${pm.details.cardLast4})`
+                                                : pm.type === "paypal"
+                                                    ? `PayPal (${pm.details.paypalEmail})`
+                                                    : `Bank Transfer (${pm.details.bankName})`;
+                                        return (
+                                            <option key={index} value={label}>
+                                                {label}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="col-md-6">
+                            <h4>Code (Optional)</h4>
+                            <div className="mb-2" >
+                                <input
+                                    type="text"
+                                    name="code"
+                                    id="code"
+                                    className="form-control"
+                                    placeholder="Enter Code"
+                                    onChange={(e) => setCode(e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </div>
-
                     <h4>Order Summary</h4>
                     <ul className="list-group mb-3">
                         {cart.map((item) => (

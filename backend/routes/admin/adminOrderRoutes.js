@@ -11,4 +11,6 @@ router.get('/orders/details/:id', isAuthorized('admin'), adminOrderController.or
 
 router.post('/orders/:id/update', isAuthorized('admin'), adminOrderController.orderUpdate);
 
+router.post('/orders/deleteSelected', isAuthorized('admin'), adminOrderController.deleteSelectedOrder);
+
 module.exports = router;

@@ -6,7 +6,6 @@ const { convertPrice } = require('../utils/currencyConverter');
 
 
 async function applyDiscount(products) {
-
     const now = new Date();
     const autoPromotions = await Promotion.find({
         type: 'auto',
@@ -15,30 +14,37 @@ async function applyDiscount(products) {
         endDate: { $gte: now },
     });
 
-    // handle both single and multiple products
-    const isSinge = !Array.isArray(products);
-    products = !Array.isArray(products) ? [products] : products;
+    // Handle both single and multiple products
+    const isSingle = !Array.isArray(products);
+    products = isSingle ? [products] : products;
 
-    // Apply matching promotion to each product
     const productsWithDiscount = products.map(product => {
         const promo = autoPromotions.find(p => p.product.toString() === product._id.toString());
 
-        const discountAmount = promo
-            ? (product.price * promo.discountPercentage) / 100
-            : 0;
-
-        const discount = promo ? product.price - discountAmount : product.price;
-
         const discountPercentage = promo ? promo.discountPercentage : 0;
+
+        // Helper to apply discount
+        const applyDiscountToPrice = (price) =>
+            promo ? price - (price * discountPercentage) / 100 : price;
+
+        // Apply discount to product price
+        const discountedProductPrice = applyDiscountToPrice(product.price);
+
+        // Apply discount to each variant, if any
+        const discountedVariants = product.variants?.map(variant => ({
+            ...variant,
+            price: applyDiscountToPrice(variant.price),
+        })) || [];
 
         return {
             ...product,
-            price: discount,
-            discountPercentage
+            price: discountedProductPrice,
+            discountPercentage,
+            variants: discountedVariants,
         };
     });
 
-    return isSinge ? productsWithDiscount[0] : productsWithDiscount;
+    return isSingle ? productsWithDiscount[0] : productsWithDiscount;
 }
 
 exports.getProductById = async (req, res) => {
@@ -65,8 +71,21 @@ exports.getProductById = async (req, res) => {
         currency: req.currency,
     };
 
-    const productsWithDiscount = await applyDiscount(formattedProduct);
+    let productsWithDiscount = await applyDiscount(formattedProduct);
     const productsWithDiscounts = await applyDiscount(formattedProducts);
+
+
+    if (productsWithDiscount.attributes instanceof Map) {
+        productsWithDiscount.attributes = Object.fromEntries(product.attributes);
+    }
+    if (Array.isArray(productsWithDiscount.variants)) {
+        productsWithDiscount.variants = productsWithDiscount.variants.map(variant => {
+            if (variant.attributes instanceof Map) {
+                variant.attributes = Object.fromEntries(variant.attributes);
+            }
+            return variant;
+        });
+    }
 
     res.json({ product: productsWithDiscount, relatedProducts: productsWithDiscounts });
 };

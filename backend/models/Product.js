@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const Promotion = require('./Promotion');
 
 // Review subdocument schema
 const reviewSchema = new mongoose.Schema({
@@ -77,6 +78,12 @@ productSchema.pre('find', function () {
     if (this.getQuery().relatedId && mongoose.Types.ObjectId.isValid(this.getQuery().relatedId)) {
         this.getQuery().relatedId = mongoose.Types.ObjectId(this.getQuery().relatedId);
     }
+});
+
+productSchema.pre('findOneAndDelete', async function (next) {
+    const product = await this.model.findOne(this.getFilter());
+    await Promotion.deleteMany({ product: product._id });
+    next();
 });
 
 const Product = mongoose.model('Product', productSchema);

@@ -2,15 +2,17 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import toastr from "toastr";
 import "toastr/build/toastr.min.css";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const ManageOrders = () => {
     const [orders, setOrders] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
-    const [sortOrder, setSortOrder] = useState("");
+    const [sortField, setSortField] = useState("");
+    const [sortDirection, setSortDirection] = useState("asc");
     const [selectedOrders, setSelectedOrders] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 3;
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const navigate = useNavigate();
 
     useEffect(() => {
         fetchOrders();
@@ -30,15 +32,20 @@ const ManageOrders = () => {
         setCurrentPage(1);
     };
 
-    const handleSort = (field) => {
-        setSortOrder(field);
+    const toggleSort = (field) => {
+        if (field === sortField) {
+            setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            setSortDirection("asc");
+        }
     };
 
     const handleStatusChange = async (orderId, newStatus) => {
         try {
             await axios.post(`/api/admin/orders/${orderId}/update`, { status: newStatus });
             toastr.success("Order status updated!");
-            fetchOrders(); // Refresh orders
+            fetchOrders();
         } catch (error) {
             if (error.response.status === 401) navigate('/unauthorized');
             toastr.error("Error updating order status.");
@@ -46,24 +53,17 @@ const ManageOrders = () => {
     };
 
     const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            setSelectedOrders(orders.map(order => order._id));
-        } else {
-            setSelectedOrders([]);
-        }
+        setSelectedOrders(e.target.checked ? orders.map(o => o._id) : []);
     };
 
     const handleSelectOrder = (orderId) => {
-        setSelectedOrders((prev) =>
+        setSelectedOrders(prev =>
             prev.includes(orderId) ? prev.filter(id => id !== orderId) : [...prev, orderId]
         );
     };
 
     const handleDeleteSelected = async () => {
-        if (selectedOrders.length === 0) {
-            toastr.warning("Please select at least one order to delete.");
-            return;
-        }
+        if (selectedOrders.length === 0) return toastr.warning("Please select at least one order to delete.");
         if (!window.confirm("Are you sure you want to delete selected orders?")) return;
 
         try {
@@ -71,41 +71,58 @@ const ManageOrders = () => {
             toastr.success("Selected orders deleted successfully!");
             fetchOrders();
             setSelectedOrders([]);
-        } catch (error) {
+        } catch {
             toastr.error("Error deleting orders.");
         }
     };
 
-    // Filter and sort orders
+    const handleRowsPerPageChange = (e) => {
+        setRowsPerPage(parseInt(e.target.value));
+        setCurrentPage(1);
+    };
+
+    // Filter and sort logic
     let filteredOrders = orders.filter(order =>
         order.userId.username.toLowerCase().includes(searchTerm) ||
         order.orderNumber.toLowerCase().includes(searchTerm)
     );
 
-    if (sortOrder) {
+    if (sortField) {
         filteredOrders.sort((a, b) => {
-            if (sortOrder === "orderId") return a.orderNumber.localeCompare(b.orderNumber);
-            if (sortOrder === "customerName") return a.userId.username.localeCompare(b.userId.username);
-            if (sortOrder === "date") return new Date(a.createdAt) - new Date(b.createdAt);
-            if (sortOrder === "status") return a.status.localeCompare(b.status);
-            if (sortOrder === "total") return a.orderTotal - b.orderTotal;
+            const aValue = sortField === "date" ? new Date(a.createdAt) :
+                sortField === "total" ? a.orderTotal :
+                    sortField === "customerName" ? a.userId.username.toLowerCase() :
+                        a[sortField]?.toLowerCase();
+
+            const bValue = sortField === "date" ? new Date(b.createdAt) :
+                sortField === "total" ? b.orderTotal :
+                    sortField === "customerName" ? b.userId.username.toLowerCase() :
+                        b[sortField]?.toLowerCase();
+
+            if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
+            if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
             return 0;
         });
     }
 
-    // Pagination logic
+    // Pagination
     const totalPages = Math.ceil(filteredOrders.length / rowsPerPage);
     const displayedOrders = filteredOrders.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
+    const renderSortArrow = (field) => {
+        if (sortField !== field) return "↕";
+        return sortDirection === "asc" ? "↑" : "↓";
+    };
+
     return (
         <div className="container my-4">
-            <h3 className="p-2 pb-0 mb-4">
-                Dashboard &gt; <span className="text-primary">Manage Orders</span>
-            </h3>
+            <p className="fs-5 text-muted mb-3">
+                Dashboard &gt; <span>Manage Orders</span>
+            </p>
 
-            {/* Search and Sort */}
+            {/* Controls */}
             <div className="row mb-3">
-                <div className="col-md-4">
+                <div className="col-md-3">
                     <input
                         type="text"
                         className="form-control"
@@ -114,30 +131,46 @@ const ManageOrders = () => {
                         onChange={handleSearch}
                     />
                 </div>
-                <div className="col-md-4">
-                    <select className="form-select" value={sortOrder} onChange={(e) => handleSort(e.target.value)}>
-                        <option value="">Sort by</option>
-                        <option value="orderId">Order ID</option>
-                        <option value="customerName">Customer Name</option>
-                        <option value="date">Date</option>
-                        <option value="status">Status</option>
-                        <option value="total">Total</option>
+                <div className="col-md-4 row">
+                    <select className="form-select w-25" onChange={handleRowsPerPageChange} value={rowsPerPage}>
+                        {[10, 15, 20, 25, 50].map(n => (
+                            <option key={n} value={n}>{n}</option>
+                        ))}
                     </select>
+                </div>
+                <div className="col-md-5 text-end">
+                    <button className="btn btn-danger" onClick={handleDeleteSelected}>
+                        Delete Selected
+                    </button>
                 </div>
             </div>
 
             {/* Orders Table */}
-            <table className="table table-bordered table-striped">
+            <table className="table table-borderless table-striped">
                 <thead>
                     <tr>
                         <th>
-                            <input type="checkbox" onChange={handleSelectAll} checked={selectedOrders.length === orders.length} />
+                            <input
+                                type="checkbox"
+                                onChange={handleSelectAll}
+                                checked={selectedOrders.length === orders.length && orders.length > 0}
+                            />
                         </th>
-                        <th onClick={() => handleSort("orderId")}>Order ID</th>
-                        <th onClick={() => handleSort("customerName")}>Customer Name</th>
-                        <th onClick={() => handleSort("date")}>Date</th>
-                        <th onClick={() => handleSort("status")}>Status</th>
-                        <th onClick={() => handleSort("total")}>Total</th>
+                        <th onClick={() => toggleSort("orderNumber")} style={{ cursor: "pointer" }}>
+                            Order ID {renderSortArrow("orderNumber")}
+                        </th>
+                        <th onClick={() => toggleSort("customerName")} style={{ cursor: "pointer" }}>
+                            Customer Name {renderSortArrow("customerName")}
+                        </th>
+                        <th onClick={() => toggleSort("date")} style={{ cursor: "pointer" }}>
+                            Date {renderSortArrow("date")}
+                        </th>
+                        <th onClick={() => toggleSort("status")} style={{ cursor: "pointer" }}>
+                            Status {renderSortArrow("status")}
+                        </th>
+                        <th onClick={() => toggleSort("total")} style={{ cursor: "pointer" }}>
+                            Total {renderSortArrow("total")}
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -168,7 +201,7 @@ const ManageOrders = () => {
                             </td>
                             <td>${order.orderTotal.toFixed(2)}</td>
                             <td>
-                                <Link to={`/admin/orders/details/${order._id}`} key={order._id} className="btn btn-primary btn-sm">
+                                <Link to={`/admin/orders/details/${order._id}`} className="btn btn-light text-primary btn-sm">
                                     <i className="fas fa-eye"></i> View
                                 </Link>
                             </td>
@@ -180,18 +213,25 @@ const ManageOrders = () => {
             {/* Pagination */}
             <nav>
                 <ul className="pagination justify-content-center">
-                    {[...Array(totalPages)].map((_, i) => (
-                        <li key={i} className={`page-item ${i + 1 === currentPage ? "active" : ""}`}>
-                            <button className="page-link" onClick={() => setCurrentPage(i + 1)}>{i + 1}</button>
+                    <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
+                        <button className="page-link" onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}>
+                            &lt;
+                        </button>
+                    </li>
+                    {Array.from({ length: totalPages }, (_, i) => (
+                        <li key={i + 1} className={`page-item ${i + 1 === currentPage ? "active" : ""}`}>
+                            <button className="page-link" onClick={() => setCurrentPage(i + 1)}>
+                                {i + 1}
+                            </button>
                         </li>
                     ))}
+                    <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
+                        <button className="page-link" onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}>
+                            &gt;
+                        </button>
+                    </li>
                 </ul>
             </nav>
-
-            {/* Delete Selected Button */}
-            <button className="btn btn-danger mt-3" onClick={handleDeleteSelected}>
-                Delete Selected
-            </button>
         </div>
     );
 };

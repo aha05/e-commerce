@@ -93,9 +93,9 @@ const OrderStatisticsChart = () => {
     };
 
     return (
-        <div className="card shadow-sm">
+        <div className="card border-0 shadow-sm">
             <div className="card-body">
-                <h5>Order Statistics</h5>
+                <p className="fs-5">Order Statistics</p>
                 <canvas ref={chartRef}></canvas>
             </div>
         </div>

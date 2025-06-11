@@ -80,6 +80,26 @@ userSchema.statics.getAdminUsers = async function () {
     return this.find({ roles: adminRole._id }).populate('roles');
 };
 
+userSchema.statics.getUsersWithRole = async function (...roleNames) {
+    const Role = mongoose.model('Role');
+
+    // Flatten roleNames and normalize to lowercase strings
+    roleNames = roleNames.flat().map(r => r.toLowerCase());
+
+    if (roleNames.includes('all')) {
+        return this.find().populate('roles');
+    }
+
+    const roles = await Role.find({ name: { $in: roleNames } });
+
+    if (roles.length === 0) return [];
+
+    const roleIds = roles.map(role => role._id);
+
+    return this.find({ roles: { $in: roleIds } }).populate('roles');
+};
+
+
 
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);

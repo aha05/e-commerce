@@ -18,12 +18,54 @@ async function applyDiscount(products) {
         endDate: { $gte: now },
     });
 
+    // Handle both single and multiple products
+    const isSingle = !Array.isArray(products);
+    products = isSingle ? [products] : products;
+
+    const productsWithDiscount = products.map(product => {
+        const promo = autoPromotions.find(p => p.product.toString() === product._id.toString());
+
+        const discountPercentage = promo ? promo.discountPercentage : 0;
+
+        // Helper to apply discount
+        const applyDiscountToPrice = (price) =>
+            promo ? price - (price * discountPercentage) / 100 : price;
+
+        // Apply discount to product price
+        const discountedProductPrice = applyDiscountToPrice(product.price);
+
+        // Apply discount to each variant, if any
+        const discountedVariants = product.variants?.map(variant => ({
+            ...variant,
+            price: applyDiscountToPrice(variant.price),
+        })) || [];
+
+        return {
+            ...product,
+            price: discountedProductPrice,
+            discountPercentage,
+            variants: discountedVariants,
+        };
+    });
+
+    return isSingle ? productsWithDiscount[0] : productsWithDiscount;
+}
+
+async function applyDiscountWithCode(products) {
+    const now = new Date();
+    const codePromotions = await Promotion.find({
+        code: code,
+        isActive: true,
+        startDate: { $lte: now },
+        endDate: { $gte: now },
+    });
+
     // handle both single and multiple products
     products = !Array.isArray(products) ? [products] : products;
 
     // Apply matching promotion to each product
     const productsWithDiscount = products.map(product => {
-        const promo = autoPromotions.find(p => p.product.toString() === product._id.toString());
+        const promo = codePromotions.find(p => p.product.toString() === product._id.toString());
 
         const discountAmount = promo
             ? (product.price * promo.discountPercentage) / 100
@@ -43,28 +85,224 @@ async function applyDiscount(products) {
     return productsWithDiscount;
 }
 
+async function cartItemWithSelectedVariant(cart, products) {
+    const detailedCart = [];
+
+    for (const cartItem of cart.items) {
+        const product = products.find(p => p._id.equals(cartItem.productId._id));
+        if (!product) continue;
+
+        let variantData = null;
+
+        // Normalize variants and cart attributes
+        if (cartItem.attributes && product.variants?.length > 0) {
+            const normalizedVariants = product.variants.map(variant => {
+                const normalizedAttrs = variant.attributes instanceof Map
+                    ? Object.fromEntries(variant.attributes)
+                    : variant.attributes;
+                return {
+                    ...variant.toObject?.() ?? variant,
+                    attributes: normalizedAttrs
+                };
+            });
+
+            const normalizedCartAttrs = cartItem.attributes instanceof Map
+                ? Object.fromEntries(cartItem.attributes)
+                : cartItem.attributes;
+
+            variantData = normalizedVariants.find(variant =>
+                Object.entries(normalizedCartAttrs).every(
+                    ([key, value]) => variant.attributes?.[key] === value
+                )
+            ) || null;
+        }
+
+        const variantAttrs = variantData?.attributes || {};
+        const image = variantData?.image || product.image;
+        const price = variantData?.price || product.price;
+        const stock = variantData?.stock || product.stock;
+
+        // Check if same product + same attributes already in detailedCart
+        const existingIndex = detailedCart.findIndex(item =>
+            item._id.equals(product._id) &&
+            JSON.stringify(item.attributes || {}) === JSON.stringify(variantAttrs)
+        );
+
+        if (existingIndex !== -1) {
+            // Update quantity if the same variant exists
+            detailedCart[existingIndex].quantity += cartItem.quantity;
+        } else {
+            // Add new cart item
+            detailedCart.push({
+                ...product.toObject(),
+                quantity: cartItem.quantity,
+                attributes: variantAttrs,
+                variants: [],
+                image,
+                price,
+                stock,
+            });
+        }
+    }
+
+    return detailedCart;
+}
+
+
+async function orderItemWithSelectedVariant(order, products) {
+    const orderItems = [];
+
+    for (const orderItem of order.items) {
+        const product = products.find(p => p._id.equals(orderItem.productId._id));
+        if (!product) continue;
+
+        let variantData = null;
+
+        // Normalize and match variant
+        if (orderItem.attributes && product.variants?.length > 0) {
+            const normalizedVariants = product.variants.map(variant => {
+                const normalizedAttrs = variant.attributes instanceof Map
+                    ? Object.fromEntries(variant.attributes)
+                    : variant.attributes;
+                return {
+                    ...variant.toObject?.() ?? variant,
+                    attributes: normalizedAttrs
+                };
+            });
+
+            const normalizedCartAttrs = orderItem.attributes instanceof Map
+                ? Object.fromEntries(orderItem.attributes)
+                : orderItem.attributes;
+
+            variantData = normalizedVariants.find(variant =>
+                Object.entries(normalizedCartAttrs).every(
+                    ([key, value]) => variant.attributes?.[key] === value
+                )
+            ) || null;
+        }
+
+
+
+
+        orderItems.push({
+            productId: {
+                ...product.toObject(),
+                price: variantData?.price || product?.price,
+                stock: variantData?.stock || product?.stock,
+                image: variantData?.image || product?.image,
+                attributes: variantData?.attributes || product?.attributes,
+                variants: []
+            },
+            quantity: orderItem.quantity,
+            attributes: orderItem.attributes,
+            discountAmount: orderItem.discountAmount,
+            discountPrice: orderItem.discountPrice,
+            _id: orderItem._id
+        });
+    }
+
+
+
+    return orderItems;
+}
+
+
+
+async function updateStockAndSendNotifications(itemList) {
+    for (const item of itemList) {
+        const product = await Product.findById(item.productId);
+
+        if (!product) continue;
+
+        // If product has variants
+        if (product.variants && product.variants.length > 0 && item.attributes) {
+            const variant = product.variants.find(v => {
+                const attrs = v.attributes instanceof Map
+                    ? Object.fromEntries(v.attributes)
+                    : v.attributes;
+
+                const itemAttrs = item.attributes instanceof Map
+                    ? Object.fromEntries(item.attributes)
+                    : item.attributes;
+
+                return Object.keys(itemAttrs).every(key => itemAttrs[key] === attrs?.[key]);
+            });
+
+            if (variant) {
+                // Decrement variant stock
+                variant.stock = (variant.stock || 0) - item.quantity;
+
+                // Trigger alert if stock low
+                if (variant.stock < 5) {
+                    const adminUser = await User.getAdminUser?.();
+                    if (adminUser) {
+                        await notifyUser({
+                            userId: adminUser._id,
+                            type: 'order',
+                            title: 'Low Stock Alert',
+                            message: `Stock for variant of "${product.name}" is low.`,
+                            meta: {
+                                email: adminUser.email,
+                                phone: adminUser.phone || '',
+                                productId: product._id,
+                                link: `/admin/products`,
+                            },
+                        });
+                    }
+                }
+            }
+        } else {
+            // Fallback to product-level stock
+            const updatedProduct = await Product.findByIdAndUpdate(
+                item.productId,
+                { $inc: { stock: -item.quantity } },
+                { new: true }
+            );
+
+            if (updatedProduct?.stock < 5) {
+                const adminUser = await User.getAdminUser?.();
+                if (adminUser) {
+                    await notifyUser({
+                        userId: adminUser._id,
+                        type: 'order',
+                        title: 'Low Stock Alert',
+                        message: `Stock for product "${updatedProduct.name}" is low.`,
+                        meta: {
+                            email: adminUser.email,
+                            phone: adminUser.phone || '',
+                            productId: updatedProduct._id,
+                            link: `/admin/products/${updatedProduct._id}`,
+                        },
+                    });
+                }
+            }
+        }
+
+        await product.save(); // Save variant stock change if any
+    }
+}
+
 exports.getCheckoutPage = async (req, res) => {
     try {
         if (!req.user) {
             return res.status(401).json({ message: "Unauthorized!" });
-
         } else {
             const userId = req.user._id;
 
             // Retrieve the cart for the user from the database
             const cart = await Cart.findOne({ userId }).populate('items.productId'); // `populate` will load product details
+            const productIds = cart.items.map(items => items.productId);
+
+            const products = await Product.find({ _id: { $in: productIds } }).populate('category');
+
+            const detailedCart = await cartItemWithSelectedVariant(cart, products)
 
             if (!cart || cart?.items?.length === 0) {
                 res.status(404).json({ message: "Cart is empty" });
                 return;
             }
 
-            const items = cart?.items?.map(item => ({
-                ...item?.productId?.toObject(), // Converts Mongoose document to plain JavaScript object
-                quantity: item?.quantity
-            }));
-
-            const formattedProducts = items.map(p => ({
+            const formattedProducts = detailedCart.map(p => ({
                 ...p,
                 price: convertPrice(p.price, req.currency),
                 currency: req.currency
@@ -82,121 +320,137 @@ exports.getCheckoutPage = async (req, res) => {
 
 exports.postOrder = async (req, res) => {
     try {
-        if (!req.user) {
-            res.status(401).send('invalid user!');
-        } else {
-            let { shippingAddress, paymentMethod } = req.body;
+        if (!req.user) return res.status(401).send('Invalid user!');
 
-            const carts = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
+        const { shippingAddress, paymentMethod, code } = req.body;
+        const userId = req.user._id;
 
-            const items = carts?.items?.map(item => {
-                return {
-                    productId: item?.productId?._id,  // Keeping only productId
-                    quantity: item?.quantity
-                };
-            }).filter(item => item !== null);
 
-            const userId = req.user._id
+        const cart = await Cart.findOne({ userId }).populate('items.productId'); // `populate` will load product details
+        const productIds = cart.items.map(items => items.productId);
 
-            if (!carts || !carts.items || carts?.items?.length === 0) {
-                console.error("Cart is empty or invalid.");
-                return;
-            }
+        const products = await Product.find({ _id: { $in: productIds } }).populate('category');
 
-            const now = new Date();
-            const promotions = await Promotion.find({
-                isActive: true,
-                type: 'auto', // for auto-discounts
-                startDate: { $lte: now },
-                endDate: { $gte: now }
-            });
+        const detailedCart = await cartItemWithSelectedVariant(cart, products);
 
-            const orderTotal = carts?.items?.reduce((total, item) => {
-                const product = item?.productId;
-                const quantity = item?.quantity;
 
-                const promo = promotions.find(p => p.product.toString() === product._id.toString());
-                const discountPercentage = promo ? promo.discountPercentage : 0;
-                const discountAmount = (product.price * discountPercentage) / 100;
-                const price = promo ? (product.price - discountAmount) : product.price;
+        if (!cart || !detailedCart || cart.items.length === 0) {
+            return res.status(400).json({ error: 'Cart is empty or invalid' });
+        }
 
-                return total + (price * quantity);
-            }, 0).toFixed(2);
+        const now = new Date();
+        const promotions = await Promotion.find({
+            isActive: true,
+            $or: [
+                { type: 'auto', startDate: { $lte: now }, endDate: { $gte: now } },
+                { type: 'code', code: code, startDate: { $lte: now }, endDate: { $gte: now } }
+            ]
+        });
 
-            const orderNumber = 'ORD' + Date.now(); // Generate a unique order number
+        let discountTotal = 0;
+        let itemList = [];
 
-            const order = new Order({
-                userId,
-                items,
-                shippingAddress,
-                paymentMethod,
-                orderTotal,
-                orderNumber,
-            });
+        for (const item of detailedCart) {
+            const product = item;
 
-            await order.save();
-            for (const item of items) {
-                const updatedProduct = await Product.findByIdAndUpdate(
-                    item?.productId,
-                    { $inc: { stock: -item.quantity } },
-                    { new: true }
-                );
+            const quantity = item.quantity;
+            const attributes = item.attributes;
 
-                // Notify admin if stock is low
-                if (updatedProduct.stock < 5) {
-                    const adminUser = await User.getAdminUser();
-                    if (adminUser) {
-                        await notifyUser({
-                            userId: adminUser._id,
-                            type: 'order', // could also be 'promo', 'review', 'system'
-                            title: 'Low Stock Alert',
-                            message: `Stock for product "${updatedProduct?.name}" is low.`,
-                            meta: {
-                                email: adminUser.email,
-                                phone: adminUser.phone || '',
-                                productId: updatedProduct?._id,
-                                link: `/admin/products/${updatedProduct._id}`,
-                            },
-                        });
-                    }
-                }
-            }
+            const promotion = promotions.find(p => p.product.toString() === product?._id?.toString());
+            const discountPercentage = promotion ? promotion.discountPercentage : 0;
+            const discountAmount = ((product.price * discountPercentage) / 100).toFixed(2);
+            const discountPrice = (product.price - discountAmount).toFixed(2);
 
-            await Cart.findOneAndUpdate({ userId: req.user._id }, { items: [] });
+            discountTotal += discountAmount * quantity;
 
-            res.json({
-                success: true,
-                orderNumber, // Send order number back
+            itemList.push({
+                productId: product._id,
+                quantity,
+                attributes,
+                discountAmount: Number(discountAmount),
+                discountPrice: Number(discountPrice)
             });
         }
+
+
+        const orderTotal = itemList.reduce((sum, item) => sum + (item.discountPrice * item.quantity), 0).toFixed(2);
+
+        const orderNumber = 'ORD' + Date.now();
+
+        const order = new Order({
+            userId,
+            items: itemList,
+            shippingAddress,
+            paymentMethod,
+            discountCode: code || '',
+            discountValue: promotions.find(p => p.code === code)?.discountPercentage || 0,
+            discountTotal: Number(discountTotal.toFixed(2)),
+            orderTotal: Number(orderTotal),
+            orderNumber
+        });
+
+
+
+        await order.save();
+
+        // Decrease stock and notify if low
+
+        await updateStockAndSendNotifications(itemList);
+
+        // Clear cart after order
+        await Cart.findOneAndUpdate({ userId }, { items: [] });
+
+        res.json({ success: true, orderNumber });
 
     } catch (error) {
         console.error('Order placement failed:', error);
         res.status(500).send('Order placement failed');
     }
-}
+};
 
 exports.getOrderConfirmation = async (req, res) => {
-
     if (!req.user) {
         res.status(401).send('Invalid User!');
     } else {
         const userId = req.user._id;
         const orderNumber = req.query.orderNumber;
-        const cart = await Cart.findOne({ userId }).populate('items.productId');
         const order = await Order.findOne({ orderNumber }).populate('items.productId');
-        const formattedProducts = order.items.map(p => ({
-            ...p.productId.toObject(),
+
+
+        const productIds = order.items.map(items => items.productId);
+
+        const products = await Product.find({ _id: { $in: productIds } }).populate('category');
+
+        const detailedOrder = await orderItemWithSelectedVariant(order, products)
+
+
+
+        if (!order || detailedOrder?.length === 0) {
+            res.status(404).json({ message: "Cart is empty" });
+            return;
+        }
+
+        const formattedProducts = detailedOrder.map(p => ({
+            ...p.productId,
             price: convertPrice(p.productId.price, req.currency),
             currency: req.currency
         }));
 
+
+
         const productsWithDiscount = await applyDiscount(formattedProducts);
-        const updatedItems = order.items.map(item => {
+
+        const updatedItems = detailedOrder.map(item => {
+
             const discountedProduct = productsWithDiscount.find(
-                p => p._id.toString() === item.productId._id.toString()
+                p => p._id.toString() === item.productId._id.toString() &&
+                    JSON.stringify(p.attributes) === JSON.stringify(item.productId.attributes)
             );
+
             return {
+                ...item,
+                discountPrice: convertPrice(item.discountPrice, req.currency),
+                discountAmount: convertPrice(item.discountAmount, req.currency),
                 productId: discountedProduct,
                 quantity: item.quantity,
                 _id: item._id
@@ -206,14 +460,16 @@ exports.getOrderConfirmation = async (req, res) => {
         const updatedOrder = {
             ...order.toObject(),
             items: updatedItems,
+            discountTotal: convertPrice(order.discountTotal, req.currency),
             orderTotal: convertPrice(order.orderTotal, req.currency),
             currency: req.currency
         };
 
         if (!order) return res.status(404).send("Order not found");
-        res.json({ order: updatedOrder, cart, user: req.user });
+        res.json({ order: updatedOrder, user: req.user });
     }
 }
+
 
 exports.getOrderDetails = async (req, res) => {
     try {
@@ -226,4 +482,3 @@ exports.getOrderDetails = async (req, res) => {
         res.status(500).send('Error loading order details');
     }
 }
-

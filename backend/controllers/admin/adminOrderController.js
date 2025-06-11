@@ -2,21 +2,16 @@ const Order = require('../../models/Order');
 
 
 exports.manageOrder = async (req, res) => {
-
-    // const products = await Product.find().populate('category');
     const orders = await Order.find().populate('userId');
-
     res.json({ orders });
-    // res.render('admin/order/manageOrder', { products, orders });
 }
-// Route to update order status
+
 exports.orderUpdate = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-
     try {
-       const order = await Order.findByIdAndUpdate(id, { status });
-        res.json({order}); // Redirect back to orders page
+        const order = await Order.findByIdAndUpdate(id, { status });
+        res.json({ order }); // Redirect back to orders page
     } catch (error) {
         console.error('Error updating order status:', error);
         res.status(500).send('Internal Server Error');
@@ -34,7 +29,6 @@ exports.orderDetails = async (req, res) => {
             })
             .lean();
         res.json({ order });
-        // res.render('admin/order/orderDetails', { order });
     } catch (error) {
         console.error('Error loading order details:', error);
         res.status(500).send('Error loading order details');
@@ -43,4 +37,15 @@ exports.orderDetails = async (req, res) => {
 
 exports.updateOrder = (req, res) => {
     // Logic for updating an order
+}
+
+exports.deleteSelectedOrder = async (req, res) => {
+    try {
+        const { orderIds } = req.body;
+        await Order.deleteMany({ _id: { $in: orderIds } });
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting selected Orders:', error);
+        res.json({ success: false, message: 'Error deleting selected Orders' });
+    }
 }

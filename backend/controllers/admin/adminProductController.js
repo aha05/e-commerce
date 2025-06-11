@@ -1,4 +1,5 @@
 const Product = require('../../models/Product');
+const Promotion = require('../../models/Promotion');
 const Category = require('../../models/Category');
 const Logger = require("../../middleware/Logger");
 const path = require("path");
@@ -36,7 +37,7 @@ exports.addProductPost = async (req, res) => {
         } = req.body;
 
         // Handle attributes (assumed JSON stringified object: Map<string, [string]>)
-        const Attributes = attributes ? (attributes.map(attribute => JSON.parse(attribute))) : {};
+        const Attributes = attributes ? (attributes.map(attribute => JSON.parse(attribute))) : [];
         const parsedAttributes = Attributes.reduce((acc, curr) => {
             if (curr.key) {
                 acc[curr.key] = curr.values;
@@ -75,7 +76,7 @@ exports.addProductPost = async (req, res) => {
         });
 
 
-        // await newProduct.save();
+        await newProduct.save();
 
         res.status(201).json({ message: "Product added successfully", product: newProduct });
     } catch (err) {
@@ -128,6 +129,8 @@ exports.editProductPost = async (req, res) => {
         // Parse and reformat attributes
         const parsedAttributes = JSON.parse(attributes)
 
+        console.log(parsedAttributes)
+
         // Parse and attach images to variants
         const parsedVariants = variants
             ? variants.map((variant, index) => {
@@ -137,10 +140,18 @@ exports.editProductPost = async (req, res) => {
                     attributes: parsed.attributes || {},
                     price: parsed.price || '',
                     stock: parsed.stock || '',
-                    image: filesMap[variantImageField] ? `/uploads/${filesMap[variantImageField]}` : parsed.image || ' ' // Use existing image if no new upload,
+                    image: filesMap[variantImageField] ? `/uploads/${filesMap[variantImageField]}` : parsed.image || ''
                 };
             })
+                .filter(v =>
+                    Object.keys(v.attributes).length > 0 ||
+                    v.price !== '' ||
+                    v.stock !== '' ||
+                    v.image !== ''
+                )
             : [];
+
+        console.log(parsedVariants)
 
         // Handle main product image
         let imagePath = product?.image;
@@ -154,7 +165,6 @@ exports.editProductPost = async (req, res) => {
             }
             imagePath = `/uploads/${filesMap["image"]}`;
         }
-
 
         // Update the product
         product.name = name;
@@ -205,6 +215,8 @@ exports.deleteSelectedProduct = async (req, res) => {
     try {
         const { productIds } = req.body;
         await Product.deleteMany({ _id: { $in: productIds } });
+        await Promotion.deleteMany({ product: { $in: productIds } });
+
         res.json({ success: true });
     } catch (error) {
         console.error('Error deleting selected products:', error);

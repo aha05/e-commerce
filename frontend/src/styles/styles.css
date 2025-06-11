@@ -43,11 +43,8 @@
 .product-card {
   border: none;
   padding: 15px;
-  transition: transform 0.2s;
 }
-.product-card:hover {
-  transform: scale(1.05);
-}
+
 .filter-sidebar {
   padding-left: 15px;
 }

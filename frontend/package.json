@@ -13,6 +13,7 @@
     "@fortawesome/fontawesome-free": "^6.7.2",
     "axios": "^1.8.4",
     "bootstrap": "^5.3.6",
+    "bootstrap-icons": "^1.13.1",
     "chart.js": "^4.4.8",
     "classnames": "^2.5.1",
     "date-fns": "^4.1.0",

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import SelesChart from "./report/SelesChart";
 import CustomerGrowthChart from "./report/CustomerGrowthChart";
-import { useNavigate } from 'react-router-dom';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import { Link, useNavigate } from 'react-router-dom';
 
 
 const Dashboard = () => {
@@ -34,7 +35,7 @@ const Dashboard = () => {
                 const response = await axios.get("/api/admin/dashboard");
                 setLowStockProducts(response.data.lowStockProducts);
             } catch (error) {
-                
+
                 console.error("Failed to fetch top-selling products:", error);
             }
         };
@@ -79,37 +80,63 @@ const Dashboard = () => {
     return (
         <div className="container mt-4">
             {/* Dashboard Cards */}
-            <div className="row">
+            <div className="row g-4">
                 {[
-                    { title: "Total Products", value: data.totalProducts, bg: "bg-danger" },
-                    { title: "Total Orders", value: data.totalOrders, bg: "bg-warning" },
-                    { title: "Total Customers", value: data.totalCustomers, bg: "bg-primary" },
-                    { title: "Revenue", value: `$${data.TotalRevenue}`, bg: "bg-success" },
+                    {
+                        title: "Total Products",
+                        value: data.totalProducts,
+                        icon: "bi-box-seam",
+                        bg: "bg-light shadow"
+                    },
+                    {
+                        title: "Total Orders",
+                        value: data.totalOrders,
+                        icon: "bi-cart-check",
+                        bg: "bg-light shadow"
+                    },
+                    {
+                        title: "Total Customers",
+                        value: data.totalCustomers,
+                        icon: "bi-people",
+                        bg: "bg-light shadow"
+                    },
+                    {
+                        title: "Revenue",
+                        value: `$${data.TotalRevenue}`,
+                        icon: "bi-currency-exchange",
+                        bg: "bg-light shadow"
+                    },
                 ].map((card, index) => (
                     <div className="col-md-3" key={index}>
-                        <div className={`card ${card.bg} text-white`}>
-                            <div className="card-body">
-                                <h5 className="card-title">{card.title}</h5>
-                                <p className="card-text display-6">{card.value}</p>
+                        <div className={`card ${card.bg} text-dark border-0`}>
+                            <div className="card-body d-flex row">
+                                <div className="mb-1 col-2">
+                                    <i className={`bi ${card.icon} fs-2 fw-bold text-muted`}></i>
+                                </div>
+                                <div className="col-8 ms-auto text-end">
+                                    <span className="display-6 fw-semibold text-end me-2">{card.value}</span>
+                                    <h6 className="fs-6 fw-light text-muted" style={{ color: '#bbb' }}>{card.title}</h6>
+                                </div>
                             </div>
                         </div>
                     </div>
                 ))}
             </div>
 
+
             {/* Recent Orders */}
-            <div className="card shadow-sm row my-4 mx-2">
+            <div className="card border-0 shadow-sm row my-4 mx-2">
                 <div className="card-body col">
-                    <h4>Recent Orders</h4>
+                    <p className="fs-5">Recent Orders</p>
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Order ID</th>
-                                <th>Customer Name</th>
-                                <th>Date</th>
-                                <th>Status</th>
-                                <th>Total</th>
-                                <th>Actions</th>
+                                <th className="text-muted">Order ID</th>
+                                <th className="text-muted">Customer Name</th>
+                                <th className="text-muted">Date</th>
+                                <th className="text-muted">Status</th>
+                                <th className="text-muted">Total</th>
+                                <th className="text-muted">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -120,7 +147,7 @@ const Dashboard = () => {
                                     <td>{new Date(order.createdAt).toDateString()}</td>
                                     <td>{order.status}</td>
                                     <td>${order.orderTotal.toFixed(2)}</td>
-                                    <td><button className="btn btn-primary btn-sm">View</button></td>
+                                    <td><Link to={`/admin/orders/details/${order._id}`} key={order._id} className="btn btn-primary btn-sm">View</Link></td>
                                 </tr>
                             ))}
                         </tbody>
@@ -129,16 +156,16 @@ const Dashboard = () => {
             </div>
 
             {/* Top-Selling Products */}
-            <div className="card shadow-sm row my-4 mx-2">
+            <div className="card border-0 shadow-sm row my-4 mx-2">
                 <div className="card-body col">
-                    <h4>Top-Selling Products</h4>
+                    <p className="fs-5">Top-Selling Products</p>
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Product Name</th>
-                                <th>Category</th>
-                                <th>Units Sold</th>
-                                <th>Total Revenue</th>
+                                <th className="text-muted">Product Name</th>
+                                <th className="text-muted">Category</th>
+                                <th className="text-muted">Units Sold</th>
+                                <th className="text-muted">Total Revenue</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -158,9 +185,9 @@ const Dashboard = () => {
             {/* Tasks & Reminders */}
             <div>
                 <div className="row my-4 mx-2">
-                    <div className="col card shadow-sm me-2">
+                    <div className="col card border-0 shadow-sm me-2">
                         <div className="card-body">
-                            <h5 className="mb-0">Tasks & Reminders</h5>
+                            <p className="fs-5">Tasks & Reminders</p>
                             <ul className="list-group list-group-flush">
                                 <TaskItem text="Process pending orders" badgeClass="bg-warning text-dark" badgeText="Pending" />
                                 <TaskItem text="Reorder low-stock items" badgeClass="bg-danger" badgeText="Urgent" />
@@ -171,9 +198,9 @@ const Dashboard = () => {
                     </div>
 
                     {/* Inventory Alerts */}
-                    <div className="col card shadow-sm ms-2">
+                    <div className="col card border-0 shadow-sm ms-2">
                         <div className="card-body">
-                            <h4>Inventory Alerts</h4>
+                            <p className="fs-5">Inventory Alerts</p>
                             <InventoryTable lowStockProducts={lowStockProducts} />
                         </div>
                     </div>
@@ -216,9 +243,9 @@ const InventoryTable = ({ lowStockProducts }) => (
     <table className="table">
         <thead>
             <tr>
-                <th>Product</th>
-                <th>Stock Level</th>
-                <th>Reorder Point</th>
+                <th className="text-muted">Product</th>
+                <th className="text-muted">Stock Level</th>
+                <th className="text-muted">Reorder Point</th>
             </tr>
         </thead>
         <tbody>
@@ -240,16 +267,16 @@ const InventoryTable = ({ lowStockProducts }) => (
 );
 
 const CustomerTable = ({ title, customers }) => (
-    <div className="col card shadow-sm mx-2">
+    <div className="col card border-0 shadow-sm mx-2">
         <div className="card-body">
-            <h5>{title}</h5>
+            <p className="fs-5">{title}</p>
             <table className="table table-hover">
                 <thead>
                     <tr>
-                        <th>Profile</th>
-                        <th>Name</th>
-                        <th>{title === "Top Customers" ? "Orders" : "Registration Date"}</th>
-                        {title === "Top Customers" && <th>Spending</th>}
+                        <th className="text-muted">Profile</th>
+                        <th className="text-muted">Name</th>
+                        <th className="text-muted">{title === "Top Customers" ? "Orders" : "Registration Date"}</th>
+                        {title === "Top Customers" && <th className="text-muted">Spending</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -270,14 +297,14 @@ const CustomerTable = ({ title, customers }) => (
 );
 
 const PromotionList = ({ promotions }) => (
-    <div className="col-7 card me-2">
+    <div className="col-7 card border-0 shadow-sm me-2">
         <div className="card-body">
-            <h5 className="mb-0">Ongoing Promotions</h5>
-            <ul className="list-group">
+            <p className="fs-5 mb-2">Ongoing Promotions</p>
+            <ul className="list-group border-0">
                 {promotions.map((promotion, index) => (
-                    <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
+                    <li key={index} className="list-group-item border-0 d-flex justify-content-between align-items-center">
                         <div>
-                            <strong>{promotion.name}</strong>
+                            <strong className="text-muted">{promotion.name}</strong>
                             <p className="mb-0 text-muted">Discount: {promotion.discountPercentage}% | Valid until: {new Date(promotion.endDate).toDateString()}</p>
                         </div>
                         <div>
@@ -292,9 +319,9 @@ const PromotionList = ({ promotions }) => (
 );
 
 const QuickActions = () => (
-    <div className="col-4 card ms-2">
+    <div className="col-4 card border-0 ms-2">
         <div className="card-body">
-            <h5 className="mb-0">Quick Actions</h5>
+            <p className="fs-5">Quick Actions</p>
             <form>
                 <div className="mb-3">
                     <label className="form-label">Promotion Name</label>

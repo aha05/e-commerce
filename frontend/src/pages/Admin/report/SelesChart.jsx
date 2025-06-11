@@ -52,9 +52,9 @@ const SelesChart = () => {
     };
 
     return (
-        <div className="card h-100 shadow-sm" >
+        <div className="card border-0 h-100 shadow-sm" >
             <div className="card-body h-100">
-                <h4>Sales Analytics</h4>
+                <p className="fs-5">Sales Analytics</p>
                 <canvas ref={salesChartRef} style={{ width: '100%', height: '100%' }}></canvas>
             </div>
         </div>

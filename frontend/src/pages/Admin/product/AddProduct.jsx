@@ -142,9 +142,9 @@ const AddProduct = () => {
 
     return (
         <div className="container my-4">
-            <h3>Dashboard &gt; Manage Product &gt; <span className="text-primary">Add Product</span></h3>
+            <p className="fs-5 text-muted">Dashboard &gt; Manage Product &gt; <span>Add Product</span></p>
 
-            <div className="card">
+            <div className="card border-0">
                 <div className="card-body">
                     <form onSubmit={handleSubmit} encType="multipart/form-data">
                         {/* BASIC FIELDS */}
@@ -219,8 +219,9 @@ const AddProduct = () => {
                         {/* VARIANT INPUTS */}
                         <div className="mb-3">
                             <label>Variants</label>
+                            <p className="text-secondary">Please enter featured variant first <span className="text-danger">*</span></p>
                             {variants.map((variant, i) => (
-                                <div key={i} className="border rounded p-2 mb-2">
+                                <div key={i} className="border-0 shadow-sm rounded px-2 pb-2 mb-2">
                                     {attributes.map(attr => (
                                         <div key={attr.key} className="mb-2">
                                             <label>{attr.key}</label>

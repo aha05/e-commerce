@@ -5,6 +5,7 @@ import toastr from "toastr";
 import "toastr/build/toastr.min.css";
 
 const EditProduct = () => {
+
     const { productId } = useParams();
     const navigate = useNavigate();
 
@@ -116,8 +117,19 @@ const EditProduct = () => {
 
     const handleVariantAttributeChange = (index, key, value) => {
         const updated = [...variants];
-        if (!updated[index].attributeValues) updated[index].attributeValues = {};
-        updated[index].attributeValues[key] = value;
+        const currentVariant = updated[index];
+
+        // Merge existing attributes from 'variant.attributes' and 'variant.attributeValues'
+        const base = {
+            ...(currentVariant.attributes || {}),
+            ...(currentVariant.attributeValues || {})
+        };
+
+        // Apply the new change
+        base[key] = value;
+
+        // Update
+        updated[index].attributeValues = base;
         setVariants(updated);
     };
 
@@ -156,10 +168,11 @@ const EditProduct = () => {
 
         variants.forEach((variant, index) => {
             formData.append("variants[]", JSON.stringify({
-                attributes: variant.attributes || variant.attributeValues,
+                attributes: variant.attributeValues || variant.attributes,
                 price: variant.price,
                 stock: variant.stock,
                 image: variant.image
+
             }));
             if (variant.image instanceof File) {
                 formData.append(`variants[${index}][image]`, variant.image);
@@ -182,11 +195,8 @@ const EditProduct = () => {
 
     return (
         <div className="container my-4">
-            <h3 className="mb-2">Dashboard &gt; Manage Product &gt; <span className="text-primary">Edit Product</span></h3>
-            <div className="card">
-                <div className="card-header">
-                    <h4 className="mb-0">Edit Product</h4>
-                </div>
+            <p className="fs-5 text-muted">Dashboard &gt; Manage Product &gt; <span>Edit Product</span></p>
+            <div className="card border-0">
                 <div className="card-body">
                     <form onSubmit={handleSubmit} encType="multipart/form-data">
                         <div className="row">
@@ -261,8 +271,9 @@ const EditProduct = () => {
                         {/* VARIANTS */}
                         <div className="mb-3">
                             <label>Variants</label>
+                            <p className="text-secondary">Please enter featured variant first <span className="text-danger">*</span></p>
                             {variants.map((variant, i) => (
-                                <div key={i} className="border rounded p-3 mb-3">
+                                <div key={i} className="border-0 shadow-sm rounded p-3 mb-3">
                                     {attributes.filter(attr => attr.key).map(attr => (
                                         <div className="mb-2" key={attr.key}>
                                             <label>{attr.key}</label>

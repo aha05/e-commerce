@@ -6,6 +6,9 @@ const orderSchema = new mongoose.Schema({
         {
             productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
             quantity: { type: Number, required: true },
+            attributes: { type: Map, of: String },
+            discountAmount: Number,
+            discountPrice: Number
         },
     ],
     shippingAddress: {
@@ -16,6 +19,9 @@ const orderSchema = new mongoose.Schema({
         country: { type: String, required: true },
     },
     paymentMethod: { type: String, required: true }, // e.g., "Credit Card", "PayPal"
+    discountCode: String,
+    discountValue: Number, // 20%
+    discountTotal: Number,
     orderTotal: { type: Number, required: true },
     orderNumber: { type: String, required: true },
     status: { type: String, default: "Pending" },

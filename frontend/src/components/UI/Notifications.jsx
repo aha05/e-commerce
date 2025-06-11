@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 function Notifications() {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showAll, setShowAll] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -39,6 +40,12 @@ function Notifications() {
         navigate(link);
     };
 
+    const toggleShowAll = (e) => {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent dropdown from closing
+        setShowAll(prev => !prev);
+    };
+
     return (
         <li className="nav-item dropdown">
             <span
@@ -69,7 +76,7 @@ function Notifications() {
                     <li className="px-3 py-2 text-muted">No notifications</li>
                 )}
 
-                {notifications?.slice(0, 5).map(n => (
+                {(showAll ? notifications : notifications.slice(0, 5)).map(n => (
                     <li
                         key={n._id}
                         className={`dropdown-item d-flex flex-column ${n.read ? '' : 'bg-light'} rounded mb-1`}
@@ -82,7 +89,7 @@ function Notifications() {
                             <button
                                 className="btn btn-sm btn-link text-decoration-none p-0 mt-1 align-self-end"
                                 onClick={(e) => {
-                                    e.stopPropagation();
+                                    e.stopPropagation(); // Don't trigger parent click
                                     handleMarkAsRead(n._id);
                                 }}
                             >
@@ -92,13 +99,19 @@ function Notifications() {
                     </li>
                 ))}
 
-                {notifications?.length > 5 && <li><hr className="dropdown-divider" /></li>}
-
-                <li className="text-center">
-                    <Link to="/notifications" className="dropdown-item text-primary">
-                        Show More
-                    </Link>
-                </li>
+                {notifications.length > 5 && (
+                    <>
+                        <li><hr className="dropdown-divider" /></li>
+                        <li className="text-center">
+                            <button
+                                className="dropdown-item text-primary"
+                                onClick={toggleShowAll}
+                            >
+                                {showAll ? 'Show Less' : 'Show More'}
+                            </button>
+                        </li>
+                    </>
+                )}
             </ul>
         </li>
     );
