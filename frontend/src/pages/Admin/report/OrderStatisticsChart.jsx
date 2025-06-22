@@ -27,8 +27,7 @@ const OrderStatisticsChart = () => {
                 renderChart(orders);
             })
             .catch((error) => {
-                if (error.response.status === 401) navigate('/unauthorized');
-                console.error("Error fetching order statistics:", error);
+                toastr.error(error.response.data.message || 'Error');
             });
 
         return () => {

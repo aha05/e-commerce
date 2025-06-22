@@ -26,7 +26,7 @@ const AddProduct = () => {
     useEffect(() => {
         axios.get("/api/category")
             .then((res) => setCategories(res.data.categories || []))
-            .catch(() => toastr.error("Failed to fetch categories"));
+            .catch((error) => toastr.error(error?.response?.data?.message));
     }, []);
 
     const handleChange = (e) => {
@@ -135,8 +135,7 @@ const AddProduct = () => {
             toastr.success("Product added successfully!");
             navigate("/admin/products");
         } catch (error) {
-            if (error.response.status === 401) navigate('/unauthorized');
-            toastr.error("Failed to add product");
+            toastr.error(error?.response?.data?.message);
         }
     };
 
@@ -146,27 +145,27 @@ const AddProduct = () => {
 
             <div className="card border-0">
                 <div className="card-body">
-                    <form onSubmit={handleSubmit} encType="multipart/form-data">
+                    <form onSubmit={handleSubmit} encType="multipart/form-data" className="text-muted">
                         {/* BASIC FIELDS */}
                         <div className="row mb-3">
                             <div className="col-md-4">
                                 <label>Name</label>
-                                <input type="text" className="form-control" name="name" value={product.name} onChange={handleChange} required />
+                                <input type="text" className="form-control bg-light" name="name" value={product.name} onChange={handleChange} required />
                             </div>
                             <div className="col-md-4">
                                 <label>Price</label>
-                                <input type="number" className="form-control" name="price" value={product.price} onChange={handleChange} required />
+                                <input type="number" className="form-control bg-light" name="price" value={product.price} onChange={handleChange} required />
                             </div>
                             <div className="col-md-4">
                                 <label>Stock</label>
-                                <input type="number" className="form-control" name="stock" value={product.stock} onChange={handleChange} required />
+                                <input type="number" className="form-control bg-light" name="stock" value={product.stock} onChange={handleChange} required />
                             </div>
                         </div>
 
                         <div className="row mb-3">
                             <div className="col-md-6">
                                 <label>Category</label>
-                                <select name="categoryId" className="form-select" value={product.categoryId} onChange={handleChange} required>
+                                <select name="categoryId" className="form-select bg-light" value={product.categoryId} onChange={handleChange} required>
                                     <option value="">Select</option>
                                     {categories.map(cat => (
                                         <option key={cat._id} value={cat._id}>{cat.name}</option>
@@ -175,18 +174,18 @@ const AddProduct = () => {
                             </div>
                             <div className="col-md-6">
                                 <label>Brand</label>
-                                <input type="text" className="form-control" name="brand" value={product.brand} onChange={handleChange} />
+                                <input type="text" className="form-control bg-light" name="brand" value={product.brand} onChange={handleChange} />
                             </div>
                         </div>
 
                         <div className="mb-3">
                             <label>Main Image</label>
-                            <input type="file" name="image" accept="image/*" className="form-control" onChange={handleChange} required />
+                            <input type="file" name="image" accept="image/*" className="form-control bg-light" onChange={handleChange} required />
                         </div>
 
                         <div className="mb-3">
                             <label>Description</label>
-                            <textarea name="description" className="form-control" value={product.description} onChange={handleChange} required />
+                            <textarea name="description" className="form-control bg-light" value={product.description} onChange={handleChange} required />
                         </div>
 
                         {/* ATTRIBUTE INPUTS */}
@@ -195,11 +194,11 @@ const AddProduct = () => {
                             {attributes.map((attr, i) => (
                                 <div className="mb-2 row" key={i}>
                                     <div className="d-flex align-items-center mb-2 col-4">
-                                        <input type="text" placeholder="Key" className="form-control mb-1" value={attr.key} onChange={(e) => handleAttributeKeyChange(i, e.target.value)} />
+                                        <input type="text" placeholder="Key" className="form-control mb-1 bg-light" value={attr.key} onChange={(e) => handleAttributeKeyChange(i, e.target.value)} />
                                     </div>
                                     {attr.values.map((val, j) => (
                                         <div key={j} className="d-flex align-items-center col-3 mb-1">
-                                            <input key={j} type="text" className="form-control mb-1" placeholder={`Value ${j + 1}`} value={val} onChange={(e) => handleAttributeValueChange(i, j, e.target.value)} />
+                                            <input key={j} type="text" className="form-control mb-1 bg-light" placeholder={`Value ${j + 1}`} value={val} onChange={(e) => handleAttributeValueChange(i, j, e.target.value)} />
                                             {j < attr.values.length - 1 && (
                                                 <button type="button" className="btn btn-outline-danger btn-sm ms-2" onClick={() => removeAttributeValue(i, j)}><i className="fas fa-trash-alt"></i></button>
                                             )}
@@ -225,7 +224,7 @@ const AddProduct = () => {
                                     {attributes.map(attr => (
                                         <div key={attr.key} className="mb-2">
                                             <label>{attr.key}</label>
-                                            <select className="form-select" onChange={(e) => handleVariantAttributeChange(i, attr.key, e.target.value)}>
+                                            <select className="form-select bg-light" onChange={(e) => handleVariantAttributeChange(i, attr.key, e.target.value)}>
                                                 <option value="">Select {attr.key}</option>
                                                 {attr.values.map(val => (
                                                     <option key={val} value={val}>{val}</option>
@@ -233,9 +232,9 @@ const AddProduct = () => {
                                             </select>
                                         </div>
                                     ))}
-                                    <input type="number" className="form-control mb-1" placeholder="Variant Price" value={variant.price} onChange={(e) => handleVariantChange(i, "price", e.target.value)} />
-                                    <input type="number" className="form-control mb-1" placeholder="Variant Stock" value={variant.stock} onChange={(e) => handleVariantChange(i, "stock", e.target.value)} />
-                                    <input type="file" className="form-control mb-1" accept="image/*" onChange={(e) => handleVariantChange(i, "image", e.target.files[0])} />
+                                    <input type="number" className="form-control mb-1 bg-light" placeholder="Variant Price" value={variant.price} onChange={(e) => handleVariantChange(i, "price", e.target.value)} />
+                                    <input type="number" className="form-control mb-1 bg-light" placeholder="Variant Stock" value={variant.stock} onChange={(e) => handleVariantChange(i, "stock", e.target.value)} />
+                                    <input type="file" className="form-control mb-1 bg-light" accept="image/*" onChange={(e) => handleVariantChange(i, "image", e.target.files[0])} />
 
                                     {/* SHOW REMOVE BUTTON ONLY IF NOT THE LAST VARIANT */}
                                     {i < variants.length - 1 && (

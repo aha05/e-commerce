@@ -49,48 +49,49 @@ const AddPromotion = () => {
             toastr.success("Promotion created successfully!");
             navigate("/admin/promotions");
         } catch (error) {
-            if (error.response?.status === 401) navigate('/unauthorized');
-            toastr.error("Failed to create promotion");
+            toastr.error(error.response.data.message || 'Error');
         }
     };
 
     return (
         <div className="container mt-4">
-            <h1>Create Promotion</h1>
-            <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                    <label className="form-label">Promotion Name</label>
-                    <input
-                        type="text"
-                        className="form-control"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
+            <p className="fs-5 text-muted mb-4">Promotions &gt; Create Promotion</p>
+            <form onSubmit={handleSubmit} style={{ padding: "0% 5%" }}>
+                <div className="row">
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Promotion Name</label>
+                        <input
+                            type="text"
+                            className="form-control bg-light"
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                <div className="mb-3">
-                    <label className="form-label">Promotion Type</label>
-                    <select
-                        name="type"
-                        className="form-select"
-                        value={formData.type}
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="auto">Auto</option>
-                        <option value="code">Code</option>
-                        <option value="hybrid">Hybrid</option>
-                    </select>
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Promotion Type</label>
+                        <select
+                            name="type"
+                            className="form-select bg-light"
+                            value={formData.type}
+                            onChange={handleChange}
+                            required
+                        >
+                            <option value="auto">Auto</option>
+                            <option value="code">Code</option>
+                            <option value="hybrid">Hybrid</option>
+                        </select>
+                    </div>
                 </div>
 
                 {formData.type !== "auto" && (
-                    <div className="mb-3">
-                        <label className="form-label">Promo Code</label>
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Promo Code</label>
                         <input
                             type="text"
-                            className="form-control"
+                            className="form-control bg-light"
                             name="code"
                             value={formData.code}
                             onChange={handleChange}
@@ -99,60 +100,64 @@ const AddPromotion = () => {
                     </div>
                 )}
 
-                <div className="col-md-4 mb-3">
-                    <label className="form-label">Product</label>
-                    <select
-                        name="productId"
-                        className="form-select"
-                        value={formData.productId}
-                        onChange={handleChange}
-                        required
-                    >
-                        <option value="">Select Product</option>
-                        {products.map((product) => (
-                            <option key={product._id} value={product._id}>
-                                {product.name}
-                            </option>
-                        ))}
-                    </select>
+                <div className="row">
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Product</label>
+                        <select
+                            name="productId"
+                            className="form-select bg-light"
+                            value={formData.productId}
+                            onChange={handleChange}
+                            required
+                        >
+                            <option value="">Select Product</option>
+                            {products.map((product) => (
+                                <option key={product._id} value={product._id}>
+                                    {product.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Discount Percentage</label>
+                        <input
+                            type="number"
+                            className="form-control bg-light"
+                            name="discountPercentage"
+                            value={formData.discountPercentage}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
                 </div>
 
-                <div className="mb-3">
-                    <label className="form-label">Discount Percentage</label>
-                    <input
-                        type="number"
-                        className="form-control"
-                        name="discountPercentage"
-                        value={formData.discountPercentage}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
+                <div className="row">
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">Start Date</label>
+                        <input
+                            type="date"
+                            className="form-control bg-light"
+                            name="startDate"
+                            value={formData.startDate}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
 
-                <div className="mb-3">
-                    <label className="form-label">Start Date</label>
-                    <input
-                        type="date"
-                        className="form-control"
-                        name="startDate"
-                        value={formData.startDate}
-                        onChange={handleChange}
-                        required
-                    />
+                    <div className="col-md-6 mb-3">
+                        <label className="form-label text-muted">End Date</label>
+                        <input
+                            type="date"
+                            className="form-control bg-light"
+                            name="endDate"
+                            value={formData.endDate}
+                            onChange={handleChange}
+                            required
+                        />
+                    </div>
                 </div>
-
-                <div className="mb-3">
-                    <label className="form-label">End Date</label>
-                    <input
-                        type="date"
-                        className="form-control"
-                        name="endDate"
-                        value={formData.endDate}
-                        onChange={handleChange}
-                        required
-                    />
-                </div>
-
                 <button type="submit" className="btn btn-primary">Create</button>
             </form>
         </div>

@@ -12,7 +12,7 @@ const AddUser = () => {
         username: "",
         email: "",
         password: "",
-        roleId: "customer",
+        roleId: "",
     });
 
     useEffect(() => {
@@ -21,8 +21,7 @@ const AddUser = () => {
                 const response = await axios.get("/api/admin/users/add"); // Adjust this to match your backend route
                 setRoles(response.data);
             } catch (error) {
-                if (error.response.status === 401) navigate('/unauthorized');
-                toastr.error("Error fetching roles");
+                toastr.error(error.response.data.message || 'Error');
             }
         };
         fetchRoles();
@@ -50,69 +49,70 @@ const AddUser = () => {
             toastr.success("User added successfully");
             navigate("/admin/users");
         } catch (error) {
-            if (error.response.status === 401) navigate('/unauthorized');
-            toastr.error("Error adding user");
+            toastr.error(error.response.data.message || 'Error');
         }
     };
 
     return (
         <div className="container my-4">
-            <h1>Add New User</h1>
-            <form onSubmit={handleSubmit} encType="multipart/form-data">
+            <p className="fs-5 text-muted mb-3">
+                User Management &gt;  <span>Add New User</span>
+            </p>
+            <form onSubmit={handleSubmit} encType="multipart/form-data" style={{ padding: "0% 20%" }}>
                 <div className="mb-3">
-                    <label className="form-label">Name</label>
+                    <label className="form-label text-muted">Name</label>
                     <input
                         type="text"
                         name="name"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.name}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Username</label>
+                    <label className="form-label text-muted">Username</label>
                     <input
                         type="text"
                         name="username"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.username}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Email</label>
+                    <label className="form-label text-muted">Email</label>
                     <input
                         type="email"
                         name="email"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.email}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Password</label>
+                    <label className="form-label text-muted">Password</label>
                     <input
                         type="password"
                         name="password"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.password}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Role</label>
-                    <select name="roleId" className="form-select" value={user.roleId} onChange={handleChange}>
+                    <label className="form-label text-muted">Role</label>
+                    <select name="roleId" className="form-select bg-light" value={user.roleId} onChange={handleChange}>
                         <option value="">Select Role</option>
                         {roles.map((role) => (
                             <option key={role._id} value={role._id}>{role.name}</option>
                         ))}
                     </select>
                 </div>
-                <button type="submit" className="btn btn-primary">Add User</button>
+                <button type="submit" className="btn btn-primary"><i className="fas fa-save"></i> Add User</button>
             </form>
         </div>
     );

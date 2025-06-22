@@ -19,10 +19,10 @@ const Login = () => {
         setLoading(true);
         try {
             const user = await login(credentials);
-            if (user.roles.includes("admin")) {
-                navigate("/admin/dashboard"); // Redirect admin to Dashboard
+            if (["admin", "sales", "manager"].some(role => user.roles.includes(role))) {
+                navigate("/admin/dashboard");
             } else {
-                navigate("/"); // Redirect regular user to Home
+                navigate("/");
             }
         } catch (error) {
             console.log("Invalid credentials");

@@ -8,6 +8,7 @@ router.get('/checkout', isAuthenticated, setCurrency, orderController.getCheckou
 router.post('/checkout', isAuthenticated, setCurrency, orderController.postOrder);
 router.get('/order-confirmation', isAuthenticated, setCurrency, orderController.getOrderConfirmation);
 router.get('/order/:id', isAuthenticated, setCurrency, orderController.getOrderDetails);
+router.post('/order/refund',  orderController.refund);
 
 
 

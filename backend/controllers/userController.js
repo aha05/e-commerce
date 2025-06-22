@@ -3,6 +3,8 @@ const User = require('../Models/User');
 const Order = require('../models/Order');
 const bcrypt = require("bcryptjs");
 const { convertPrice } = require('../utils/currencyConverter');
+const path = require("path");
+const fs = require("fs");
 
 
 // Display user profile page
@@ -46,7 +48,7 @@ exports.editProfile = async (req, res) => {
         if (phone && !phone.startsWith('+')) {
             phone = '+' + phone;
         }
-        
+
         await User.findByIdAndUpdate(req.params.id, {
             FirstName,
             LastName,
@@ -91,7 +93,7 @@ exports.changePassword = async (req, res) => {
 exports.updateImage = async (req, res) => {
     try {
         const user = await User.findOne({ _id: req.params.id });
-        if (user.image && user.image && user.image !== image) {
+        if (user.image) {
             const oldImagePath = path.join(__dirname, "..", "public", user.image);
             if (fs.existsSync(oldImagePath)) {
                 fs.unlinkSync(oldImagePath); // Delete old file

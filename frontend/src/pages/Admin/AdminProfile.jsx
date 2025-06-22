@@ -36,9 +36,9 @@ const Profile = () => {
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState("profile");
     const [cart, setCart] = useState([]);
+    const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [showPasswordChangeModal, setPasswordChangeModal] = useState(false);
-    const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
     const [showDeleteModal, setDeleteModal] = useState(false);
     const [showNotificationModal, setNotificationModal] = useState(false);
     const [showPaymentMethodModal, setPaymentMethodModal] = useState(false);
@@ -324,7 +324,6 @@ const Profile = () => {
     };
 
 
-
     return (
         <div>
             <div className="container profile-container my-5">
@@ -598,6 +597,7 @@ const Profile = () => {
                                                 >
                                                     View Details
                                                 </button>
+
                                             </div>
                                         </div>
                                     ))}
@@ -773,10 +773,6 @@ const Profile = () => {
                                                                         <button className="btn btn-sm btn-outline-danger me-1" onClick={() => handleDelete(idx)}>
                                                                             <i className="fas fa-trash"></i>
                                                                         </button>
-                                                                        {/* Edit logic can be added here */}
-                                                                        {/* <button className="btn btn-sm btn-outline-secondary">
-                                                                            <i className="fas fa-edit"></i>
-                                                                        </button> */}
                                                                     </div>
                                                                 </div>
                                                             ))}

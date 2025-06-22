@@ -72,8 +72,7 @@ const CustomerGrowthChart = () => {
                     },
                 });
             } catch (error) {
-                if (error.response.status === 401) navigate('/unauthorized');
-                console.error("Error fetching customer growth data:", error);
+                toastr.error(error.response.data.message || 'Error');
             }
         };
 

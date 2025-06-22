@@ -14,6 +14,7 @@ import axios from "axios";
 import "../styles/profile.css"
 import toastr from "toastr";
 import OrderDetailModal from "../components/UI/OrderDetailModal";
+import RefundModal from "../components/UI/RefundModal";
 
 
 
@@ -34,6 +35,7 @@ const Profile = () => {
             address: ""
         }
     });
+    const [refunds, setRefunds] = useState([]);
 
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState("profile");
@@ -45,6 +47,7 @@ const Profile = () => {
     const [showNotificationModal, setNotificationModal] = useState(false);
     const [showPaymentMethodModal, setPaymentMethodModal] = useState(false);
     const [showLanguageAndCurrencyModal, setLanguageAndCurrencyModal] = useState(false);
+    const [showRefundModal, setShowRefundModal] = useState(false);
 
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -59,9 +62,6 @@ const Profile = () => {
     );
 
     const navigate = useNavigate();
-
-
-
 
     useEffect(() => {
         const fetchData = async () => {
@@ -325,6 +325,10 @@ const Profile = () => {
         }
     };
 
+    const openRefundModal = (order) => {
+        setSelectedOrder(order);
+        setShowRefundModal(true);
+    };
 
     return (
         <div>
@@ -335,10 +339,10 @@ const Profile = () => {
                     <div className="col-md-3">
                         <div className="card p-3">
                             <div className="text-center position-relative d-inline-block">
-                                {user.image ? (
+                                {user?.image ? (
                                     <>
                                         <img
-                                            src={`${backendUrl}${user.image}`}
+                                            src={`${backendUrl}${user?.image}`}
                                             width="100"
                                             height="100"
                                             alt="Profile"
@@ -377,7 +381,7 @@ const Profile = () => {
                                     style={{ display: "none" }}
                                     onChange={handleProfileImageChange}
                                 />
-                                <h4 className="mt-3">{user.name}</h4>
+                                <h4 className="mt-3">{user?.name}</h4>
                             </div>
                             <ul className="nav nav-pills flex-column mt-4">
                                 <li className="nav-item">
@@ -410,12 +414,12 @@ const Profile = () => {
                                         style={{ cursor: "pointer" }}
                                         onClick={() => setShowModal(true)}
                                     ></i>
-                                    <p><strong>Name:</strong> {user.name}</p>
-                                    <p><strong>Username:</strong> {user.username}</p>
-                                    <p><strong>Email:</strong> {user.email}</p>
-                                    <p><strong>Phone:</strong> {user.phone}</p>
-                                    <p><strong>Country:</strong> {user.address?.country}</p>
-                                    <p><strong>Address:</strong> {user.address?.address}</p>
+                                    <p><strong>Name:</strong> {user?.name}</p>
+                                    <p><strong>Username:</strong> {user?.username}</p>
+                                    <p><strong>Email:</strong> {user?.email}</p>
+                                    <p><strong>Phone:</strong> {user?.phone}</p>
+                                    <p><strong>Country:</strong> {user?.address?.country}</p>
+                                    <p><strong>Address:</strong> {user?.address?.address}</p>
                                 </div>
 
                                 {/* Edit Modal */}
@@ -586,6 +590,8 @@ const Profile = () => {
                             <div>
                                 <h3 className="text-center mb-4">Order History</h3>
                                 <OrderDetailModal show={showOrderDetailModal} onClose={() => setShowOrderDetailModal(false)} selectedOrder={selectedOrder} />
+                                <RefundModal order={selectedOrder} show={showRefundModal} onClose={() => setShowRefundModal(false)} />
+
                                 <div className="row">
                                     {orders.map((order) => (
                                         <div className="col-md-6" key={order._id}>
@@ -594,12 +600,17 @@ const Profile = () => {
                                                 <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
                                                 <p><strong>Status:</strong> {order.status}</p>
                                                 <p><strong>Total:</strong> {parseFloat(order?.orderTotal || 0).toFixed(2)}{order.currency}</p>
-                                                <button
-                                                    className="btn btn-outline-primary btn-sm"
-                                                    onClick={() => openOrderDetails(order)}
-                                                >
-                                                    View Details
-                                                </button>
+                                                <div className="row mx-2 gap-5">
+                                                    <button
+                                                        className="col btn btn-outline-primary btn-sm"
+                                                        onClick={() => openOrderDetails(order)}
+                                                    >
+                                                        View Details
+                                                    </button>
+                                                    <a className="col link text-decoration-none text-muted" style={{ cursor: 'pointer' }} onClick={() => openRefundModal(order)}>
+                                                        Request refund
+                                                    </a>
+                                                </div>
 
                                             </div>
                                         </div>

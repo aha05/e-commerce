@@ -41,7 +41,7 @@ const Checkout = () => {
             try {
                 const response = await axios.get("/api/orders/checkout"); // Fetch cart data from backend
                 setCart(response.data.cart);
-                setUser(response.data.user);
+                setUser(response?.data?.user);
             } catch (error) {
                 console.error("Error fetching cart:", error);
             }

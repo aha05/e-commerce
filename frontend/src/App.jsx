@@ -5,9 +5,8 @@ import {
     Dashboard, ManageProducts, AddProduct, EditProduct,
     ManageOrders, OrderDetails,
     ManageCategories, AddCategory, EditCategory,
-    UserManagement, AddUser, EditUser,
-    Roles, EditRole,
-    Promotion, AddPromotion, EditPromotion,
+    UserManagement, AddUser, EditUser, SalesReport,
+    Roles, Promotion, AddPromotion, EditPromotion,
     Report, Logs, Test, ManageCustomer, OrderDetail
 } from "./pages";
 
@@ -16,6 +15,7 @@ import { CartProvider } from "./contexts/CartContext";
 import AdminHeader from "./components/Partials/AdminHeader";
 import NotFound from "./NotFound"
 import Unauthorized from "./Unauthorized"
+
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useContext(AuthContext);
@@ -100,7 +100,6 @@ function App() {
 
                             {/* Roles */}
                             <Route path="roles" element={<Roles />} />
-                            <Route path="roles/update/:roleId" element={<EditRole />} />
 
                             {/* Customers */}
                             <Route path="customers" element={<ManageCustomer />} />
@@ -111,7 +110,8 @@ function App() {
                             <Route path="promotions/update/:promotionId" element={<EditPromotion />} />
 
                             {/* Reports & Logs */}
-                            <Route path="reports" element={<Report />} />
+                            <Route path="reports/sales" element={<SalesReport />} />
+                            <Route path="reports/analytics" element={<Report />} />
                             <Route path="logs" element={<Logs />} />
 
                             <Route path="profile" element={<AdminProfile />} />

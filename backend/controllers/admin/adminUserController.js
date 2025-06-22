@@ -4,6 +4,7 @@ const Role = require('../../models/Role');
 const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
+const hasPermission = require('../../utils/hasPermission');
 
 exports.manageRole = async (req, res) => {
     try {
@@ -61,6 +62,7 @@ exports.updateRole = async (req, res) => {
 
 exports.updateRolePost = async (req, res) => {
     const { name, permissionIds } = req.body;
+
     try {
         const role = await Role.findById(req.params.id);
         if (!role) return res.status(404).send('Role not found');
@@ -136,8 +138,34 @@ exports.createUser = async (req, res) => {
 exports.createUserPost = async (req, res) => {
     const { name, username, email, password, roleId } = req.body;
     try {
+        const existingUser = await User.findOne({ $or: [{ email }, { username }] });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Email or username already in use.' });
+        }
+        // 4. Determine roles to assign
+        let assignedRoles = [];
+
+        const canAssignRoles = await hasPermission(req.user._id, 'assign_roles');
+        if (canAssignRoles && roleId) {
+            const roleIdsArray = Array.isArray(roleId) ? roleId : [roleId];
+
+            const validRoles = await Role.find({ _id: { $in: roleIdsArray } });
+            if (validRoles.length !== roleIdsArray.length) {
+                return res.status(400).json({ message: 'One or more roles are invalid.' });
+            }
+
+            assignedRoles = roleIdsArray;
+        } else {
+            // Assign default "user" role
+            const defaultRole = await Role.findOne({ name: 'user' });
+            if (!defaultRole) {
+                return res.status(500).json({ message: 'Default user role not found.' });
+            }
+            assignedRoles = [defaultRole._id];
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        const user = new User({ name, username, email, password: hashedPassword, roles: roleId });
+        const user = new User({ name, username, email, password: hashedPassword, roles: assignedRoles });
         await user.save();
         res.status(201).json({ message: "User created successfully!", user });
     } catch (error) {
@@ -182,7 +210,13 @@ exports.editUserPost = async (req, res) => {
         if (user.roles.some(role => role.name === 'admin'))
             return res.status(403).json({ error: 'Access denied.' });
 
-        const rolesArray = Array.isArray(roleId) ? roleId : [roleId];
+        let rolesArray = user.roles.map(role => role._id);
+
+        if (await hasPermission(req.user._id, 'assign_roles')) {
+            if (roleId) {
+                rolesArray = Array.isArray(roleId) ? roleId : [roleId];
+            }
+        }
 
         await User.findByIdAndUpdate(req.params.id, { name, username, email, roles: rolesArray });
         res.json({ user });

@@ -46,8 +46,7 @@ const EditPromotion = () => {
 
                 setProducts(sortedProducts);
             } catch (error) {
-                if (error.response?.status === 401) navigate('/unauthorized');
-                toastr.error("Error fetching promotion or product list.");
+                toastr.error(error.response.data.message || 'Error');
             }
         };
 
@@ -70,41 +69,36 @@ const EditPromotion = () => {
             await axios.put(`/api/admin/promotions/update/${promotionId}`, promotion);
             toastr.success("Promotion updated successfully!");
             navigate("/admin/promotions");
-        } catch (err) {
-            toastr.error("Failed to update promotion.");
+        } catch (error) {
+            toastr.error(error.response.data.message || 'Error');
         }
     };
 
     return (
         <div className="container my-4">
-            <h3 className="mb-2">
-                Dashboard &gt; Manage Promotion &gt;
-                <span className="text-primary"> Edit Promotion</span>
-            </h3>
 
-            <div className="card">
-                <div className="card-header">
-                    <h4 className="mb-0">Update Promotion Details</h4>
-                </div>
+            <p className="fs-5 text-muted mb-3">Promotions &gt; Edit Promotion</p>
+
+            <div className="card border-0">
                 <div className="card-body">
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={handleSubmit} style={{ padding: "0% 5%" }}>
                         <div className="row">
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Promotion Name</label>
+                                <label className="form-label text-muted">Promotion Name</label>
                                 <input
                                     type="text"
                                     name="name"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     value={promotion.name}
                                     onChange={handleChange}
                                     required
                                 />
                             </div>
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Promotion Type</label>
+                                <label className="form-label text-muted">Promotion Type</label>
                                 <select
                                     name="type"
-                                    className="form-select"
+                                    className="form-select bg-light"
                                     value={promotion.type}
                                     onChange={handleChange}
                                     required
@@ -119,11 +113,11 @@ const EditPromotion = () => {
                         {(promotion.type === "code" || promotion.type === "hybrid") && (
                             <div className="row">
                                 <div className="col-md-6 mb-3">
-                                    <label className="form-label">Promo Code</label>
+                                    <label className="form-label text-muted">Promo Code</label>
                                     <input
                                         type="text"
                                         name="code"
-                                        className="form-control"
+                                        className="form-control bg-light"
                                         value={promotion.code}
                                         onChange={handleChange}
                                         required
@@ -134,11 +128,11 @@ const EditPromotion = () => {
 
                         <div className="row">
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Discount Percentage (%)</label>
+                                <label className="form-label text-muted">Discount Percentage (%)</label>
                                 <input
                                     type="number"
                                     name="discountPercentage"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     value={promotion.discountPercentage}
                                     onChange={handleChange}
                                     min="0"
@@ -147,10 +141,10 @@ const EditPromotion = () => {
                                 />
                             </div>
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Product</label>
+                                <label className="form-label text-muted">Product</label>
                                 <select
                                     name="productId"
-                                    className="form-select"
+                                    className="form-select bg-light"
                                     value={promotion.productId || ""}
                                     onChange={handleChange}
                                     required
@@ -164,24 +158,24 @@ const EditPromotion = () => {
                             </div>
                         </div>
 
-                        <div className="row">
+                        <div className="row mb-2">
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Start Date</label>
+                                <label className="form-label text-muted">Start Date</label>
                                 <input
                                     type="date"
                                     name="startDate"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     value={promotion.startDate}
                                     onChange={handleChange}
                                     required
                                 />
                             </div>
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">End Date</label>
+                                <label className="form-label text-muted">End Date</label>
                                 <input
                                     type="date"
                                     name="endDate"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     value={promotion.endDate}
                                     onChange={handleChange}
                                     required
@@ -190,7 +184,7 @@ const EditPromotion = () => {
                         </div>
 
                         <button type="submit" className="btn btn-primary">
-                            <i className="fas fa-save"></i> Save Changes
+                            <i className="fas fa-save"></i> Update
                         </button>
                     </form>
                 </div>

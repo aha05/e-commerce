@@ -57,7 +57,7 @@ const EditProduct = () => {
                 ];
                 setCategories(sortedCategories);
             })
-            .catch(() => toastr.error("Error loading product"));
+            .catch((error) => toastr.error(error?.response?.data?.message));
     }, [productId]);
 
     const handleChange = (e) => {
@@ -179,7 +179,6 @@ const EditProduct = () => {
             }
         });
 
-        // formData.append("variants", JSON.stringify(variants));
 
         try {
             await axios.put(`/api/admin/products/edit/${productId}`, formData, {
@@ -187,9 +186,8 @@ const EditProduct = () => {
             });
             toastr.success("Product updated");
             navigate("/admin/products");
-        } catch {
-            if (error.response.status === 401) navigate('/unauthorized');
-            toastr.error("Update failed");
+        } catch (error) {
+            toastr.error(error?.response?.data?.message);
         }
     };
 
@@ -202,16 +200,16 @@ const EditProduct = () => {
                         <div className="row">
                             <div className="col-md-4 mb-3">
                                 <label className="form-label">Name</label>
-                                <input type="text" className="form-control" name="name" value={product.name} onChange={handleChange} required />
+                                <input type="text" className="form-control bg-light" name="name" value={product.name} onChange={handleChange} required />
                             </div>
                             <div className="col-md-4 mb-3">
                                 <label className="form-label">Price ($)</label>
-                                <input type="number" className="form-control" name="price" value={product.price} onChange={handleChange} required />
+                                <input type="number" className="form-control bg-light" name="price" value={product.price} onChange={handleChange} required />
                             </div>
 
                             <div className="col-md-4 mb-3">
                                 <label className="form-label">Category</label>
-                                <select name="categoryId" className="form-select" value={product.categoryId} onChange={handleChange} required>
+                                <select name="categoryId" className="form-select bg-light" value={product.categoryId} onChange={handleChange} required>
                                     <option value="">Select category</option>
                                     {categories.map((cat) => (
                                         <option key={cat._id} value={cat._id}>{cat.name}</option>
@@ -223,22 +221,22 @@ const EditProduct = () => {
                         <div className="row">
                             <div className="col-md-6 mb-3">
                                 <label className="form-label">Brand</label>
-                                <input type="text" className="form-control" name="brand" value={product.brand} onChange={handleChange} />
+                                <input type="text" className="form-control bg-light" name="brand" value={product.brand} onChange={handleChange} />
                             </div>
                             <div className="col-md-6 mb-3">
                                 <label className="form-label">Stock</label>
-                                <input type="number" className="form-control" name="stock" value={product.stock} onChange={handleChange} required />
+                                <input type="number" className="form-control bg-light" name="stock" value={product.stock} onChange={handleChange} required />
                             </div>
                         </div>
 
                         <div className="mb-3">
                             <label className="form-label">Image</label>
-                            <input type="file" className="form-control" name="image" accept="image/*" onChange={handleChange} />
+                            <input type="file" className="form-control bg-light" name="image" accept="image/*" onChange={handleChange} />
                         </div>
 
                         <div className="mb-3">
                             <label className="form-label">Description</label>
-                            <textarea name="description" className="form-control" rows="3" value={product.description} onChange={handleChange} required />
+                            <textarea name="description" className="form-control bg-light" rows="3" value={product.description} onChange={handleChange} required />
                         </div>
 
                         {/* ATTRIBUTE INPUTS */}
@@ -247,11 +245,11 @@ const EditProduct = () => {
                             {attributes.map((attr, i) => (
                                 <div className="mb-2 row" key={i}>
                                     <div className="d-flex align-items-center mb-2 col-4">
-                                        <input type="text" placeholder="Key" className="form-control mb-1" value={attr.key} onChange={(e) => handleAttributeKeyChange(i, e.target.value)} />
+                                        <input type="text" placeholder="Key" className="form-control mb-1 bg-light" value={attr.key} onChange={(e) => handleAttributeKeyChange(i, e.target.value)} />
                                     </div>
                                     {attr.values.map((val, j) => (
                                         <div key={j} className="d-flex align-items-center col-3 mb-1">
-                                            <input type="text" className="form-control mb-1" placeholder={`Value ${j + 1}`} value={val} onChange={(e) => handleAttributeValueChange(i, j, e.target.value)} />
+                                            <input type="text" className="form-control mb-1 bg-light" placeholder={`Value ${j + 1}`} value={val} onChange={(e) => handleAttributeValueChange(i, j, e.target.value)} />
                                             {j < attr.values.length - 1 && (
                                                 <button type="button" className="btn btn-outline-danger btn-sm ms-2" onClick={() => removeAttributeValue(i, j)}><i className="fas fa-trash-alt"></i></button>
                                             )}
@@ -277,15 +275,15 @@ const EditProduct = () => {
                                     {attributes.filter(attr => attr.key).map(attr => (
                                         <div className="mb-2" key={attr.key}>
                                             <label>{attr.key}</label>
-                                            <select className="form-select" value={variant.attributeValues?.[attr.key] || variant.attributes?.[attr.key] || ""} onChange={(e) => handleVariantAttributeChange(i, attr.key, e.target.value)}>
+                                            <select className="form-select bg-light" value={variant.attributeValues?.[attr.key] || variant.attributes?.[attr.key] || ""} onChange={(e) => handleVariantAttributeChange(i, attr.key, e.target.value)}>
                                                 <option value="">Select {attr.key}</option>
                                                 {attr.values.map(val => <option key={val} value={val}>{val}</option>)}
                                             </select>
                                         </div>
                                     ))}
-                                    <input type="number" className="form-control mb-2" placeholder="Variant Price" value={variant.price} onChange={(e) => handleVariantChange(i, "price", e.target.value)} />
-                                    <input type="number" className="form-control mb-2" placeholder="Variant Stock" value={variant.stock} onChange={(e) => handleVariantChange(i, "stock", e.target.value)} />
-                                    <input type="file" className="form-control mb-2" onChange={(e) => handleVariantChange(i, "image", e.target.files[0])} />
+                                    <input type="number" className="form-control mb-2 bg-light" placeholder="Variant Price" value={variant.price} onChange={(e) => handleVariantChange(i, "price", e.target.value)} />
+                                    <input type="number" className="form-control mb-2 bg-light" placeholder="Variant Stock" value={variant.stock} onChange={(e) => handleVariantChange(i, "stock", e.target.value)} />
+                                    <input type="file" className="form-control mb-2 bg-light" onChange={(e) => handleVariantChange(i, "image", e.target.files[0])} />
                                     {i < variants.length - 1 && <button type="button" className="btn btn-danger btn-sm" onClick={() => removeVariant(i)}>Remove Variant</button>}
                                 </div>
                             ))}

@@ -4,19 +4,23 @@ const router = express.Router();
 const adminCategoryController = require('../../controllers/admin/adminCategoryController');
 const upload = require("../../middleware/uploadMiddleware");
 const isAuthorized = require("../../middleware/isAuthorized");
+const checkPermission = require("../../middleware/checkPermission");
+
 
 // Manage Categories - list, add, edit, delete
-router.get('/categories', isAuthorized('admin'), adminCategoryController.manageCategory);
+router.get('/categories', isAuthorized('admin', 'manager', 'sales'), checkPermission('view_categories'), adminCategoryController.manageCategory);
 
-router.get('/categories/add', isAuthorized('admin'), adminCategoryController.addCategory);
+router.get('/categories/add', isAuthorized('admin', 'manager', 'sales'), checkPermission('create_category'), adminCategoryController.addCategory);
 
-router.post('/categories/add', isAuthorized('admin'), upload.single("image"), adminCategoryController.addCategoryPost);
+router.post('/categories/add', isAuthorized('admin', 'manager', 'sales'), checkPermission('create_category'), upload.single("image"), adminCategoryController.addCategoryPost);
 
-router.get('/categories/edit/:id', isAuthorized('admin'), adminCategoryController.editCategory);
+router.get('/categories/edit/:id', isAuthorized('admin', 'manager', 'sales'), checkPermission('edit_category'), adminCategoryController.editCategory);
 
-router.put('/categories/edit/:id', isAuthorized('admin'), upload.single("image"), adminCategoryController.editCategoryPost);
+router.put('/categories/edit/:id', isAuthorized('admin', 'manager', 'sales'), checkPermission('edit_category'), upload.single("image"), adminCategoryController.editCategoryPost);
 
-router.delete('/categories/delete/:id', isAuthorized('admin'), adminCategoryController.deleteCategory);
+router.delete('/categories/delete/:id', isAuthorized('admin', 'manager', 'sales'), checkPermission('delete_category'), adminCategoryController.deleteCategory);
+
+router.post('/categories/deleteSelected', isAuthorized('admin', 'manager', 'sales'), checkPermission('delete_selected_product'), adminCategoryController.deleteSelectedCategories);
 
 
 module.exports = router;

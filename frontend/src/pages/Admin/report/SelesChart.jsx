@@ -29,8 +29,7 @@ const SelesChart = () => {
                 renderCharts(sales);
             })
             .catch((error) => {
-                if (error.response.status === 401) navigate('/unauthorized');
-                console.error("Error fetching data:", error);
+                toastr.error(error.response.data.message || 'Error');
             });
     }, []);
 

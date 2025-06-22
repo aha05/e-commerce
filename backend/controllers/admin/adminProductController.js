@@ -2,6 +2,10 @@ const Product = require('../../models/Product');
 const Promotion = require('../../models/Promotion');
 const Category = require('../../models/Category');
 const Logger = require("../../middleware/Logger");
+const User = require('../../Models/User');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
+const moment = require('moment');
 const path = require("path");
 const fs = require("fs");
 
@@ -129,7 +133,6 @@ exports.editProductPost = async (req, res) => {
         // Parse and reformat attributes
         const parsedAttributes = JSON.parse(attributes)
 
-        console.log(parsedAttributes)
 
         // Parse and attach images to variants
         const parsedVariants = variants
@@ -151,7 +154,6 @@ exports.editProductPost = async (req, res) => {
                 )
             : [];
 
-        console.log(parsedVariants)
 
         // Handle main product image
         let imagePath = product?.image;
@@ -223,3 +225,338 @@ exports.deleteSelectedProduct = async (req, res) => {
         res.json({ success: false, message: 'Error deleting selected products' });
     }
 }
+
+exports.exportExcel = async (req, res) => {
+    try {
+        const products = await Product.find().populate('category').populate('reviews.user');
+
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('Products');
+
+        // Define columns
+        sheet.columns = [
+            { header: 'Name', key: 'name', width: 20 },
+            { header: 'Brand', key: 'brand', width: 20 },
+            { header: 'Description', key: 'description', width: 40 },
+            { header: 'Price', key: 'price', width: 10 },
+            { header: 'Stock', key: 'stock', width: 10 },
+            { header: 'Category', key: 'category', width: 20 },
+            { header: 'Attributes', key: 'attributes', width: 30 },
+            { header: 'Variants', key: 'variants', width: 40 },
+            { header: 'Reviews', key: 'reviews', width: 60 },
+            { header: 'Average Rating', key: 'averageRating', width: 15 },
+            { header: 'Total Reviews', key: 'totalReviews', width: 15 },
+            { header: 'Created Date', key: 'createdAt', width: 20 },
+            { header: 'Updated Date', key: 'updatedAt', width: 20 },
+        ];
+
+        // Add rows
+        products.forEach(product => {
+            // Format attributes
+            const attributesStr = Array.from(product.attributes.entries())
+                .map(([key, values]) => `${key}: ${values.join(', ')}`)
+                .join('; ');
+
+            // Format variants
+            const variantsStr = product.variants.map(v => {
+                const attrStr = Array.from(v.attributes.entries())
+                    .map(([k, val]) => `${k}: ${val}`).join(', ');
+                return `${attrStr}, Price: ${v.price || '-'}, Stock: ${v.stock || '-'}`;
+            }).join('; \n');
+
+            const reviewsStr = (product.reviews || []).map(r => {
+                const email = r.user?.email || 'N/A';
+                return `${email}, ${r.rating}, ${r.comment}`;
+            }).join('; \n');
+
+
+            sheet.addRow({
+                name: product.name,
+                brand: product.brand,
+                description: product.description,
+                price: product.price,
+                stock: product.stock,
+                category: product.category?.name || '',
+                attributes: attributesStr,
+                variants: variantsStr,
+                reviews: reviewsStr,
+                averageRating: product.averageRating,
+                totalReviews: product.totalReviews,
+                createdAt: product?.createdAt?.toLocaleString(),
+                updatedAt: product?.updatedAt?.toLocaleString()
+            });
+        });
+
+        // Format header
+        sheet.getRow(1).eachCell(cell => {
+            cell.font = { bold: true };
+        });
+
+        // Send file
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', 'attachment; filename=products.xlsx');
+        await workbook.xlsx.write(res);
+        res.end();
+    } catch (error) {
+        console.error('Failed to export Excel:', error);
+        res.status(500).json({ message: 'Failed to export Excel' });
+    }
+};
+
+exports.exportPDF = async (req, res) => {
+    try {
+        const products = await Product.find().populate('category');
+
+        // Initialize PDF document
+        const doc = new PDFDocument({ margin: 30, size: 'A4' });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=products.pdf');
+
+        doc.pipe(res);
+
+        doc.fontSize(18).text('Product Report', { align: 'center' });
+        doc.moveDown(1.5);
+
+        products.forEach((product, index) => {
+            const attributesStr = Array.from(product.attributes.entries())
+                .map(([key, values]) => `${key}: [${values.join(', ')}]`).join('; ');
+
+            const variantsStr = product.variants.map(v => {
+                const attrStr = Array.from(v.attributes.entries())
+                    .map(([k, val]) => `${k}: ${val}`).join(', ');
+                return `{ ${attrStr} | Price: ${v.price || '-'}, Stock: ${v.stock || '-'} }`;
+            }).join('\n');
+
+            doc
+                .fontSize(12)
+                .text(`Name: ${product.name}`)
+                .text(`Brand: ${product.brand || '-'}`)
+                .text(`Description: ${product.description || '-'}`)
+                .text(`Price: $${product.price}`)
+                .text(`Stock: ${product.stock}`)
+                .text(`Category: ${product.category?.name || '-'}`)
+                .text(`Attributes: ${attributesStr}`)
+                .text(`Variants: ${variantsStr}`)
+                .text(`Average Rating: ${product.averageRating}`)
+                .text(`Total Reviews: ${product.totalReviews}`)
+                .text(`Created: ${moment(product.createdAt).format('YYYY-MM-DD HH:mm')}`)
+                .text(`Updated: ${moment(product.updatedAt).format('YYYY-MM-DD HH:mm')}`)
+                .moveDown(1);
+
+            // Add a line between products
+            if (index !== products.length - 1) {
+                doc.moveTo(30, doc.y).lineTo(570, doc.y).stroke();
+                doc.moveDown(1);
+            }
+
+            // Check for pagination
+            if (doc.y > 700) {
+                doc.addPage();
+            }
+        });
+
+        doc.end();
+    } catch (err) {
+        console.error('Failed to export PDF:', err);
+        res.status(500).json({ message: 'Failed to export PDF' });
+    }
+};
+
+exports.importExcel = async (req, res) => {
+    try {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.readFile(req.file.path);
+
+        const sheet = workbook.getWorksheet(1);
+        const rows = sheet.getSheetValues().slice(2); // skip header row
+
+        for (let row of rows) {
+            if (!row) continue;
+
+            const [
+                , // Index 0 is unused
+                name,
+                brand,
+                description,
+                price,
+                stock,
+                imagePathOrUrl,
+                categoryName,
+                attributesRaw,
+                variantsRaw,
+                reviewsRaw,
+                averageRating,
+                totalReviews,
+                createdAt,
+                updatedAt
+            ] = row;
+
+
+            // -- Required: name, brand, description, price, stock, category
+            if (!name || !price || !stock || !categoryName) continue;
+
+            // 1. Category
+            let category = await Category.findOne({ name: categoryName });
+            if (!category) {
+                category = await new Category({ name: categoryName }).save();
+            }
+
+            // 2. Attributes (optional)
+            const attributes = new Map();
+            if (attributesRaw && typeof attributesRaw === 'string') {
+                attributesRaw.split(';').forEach(pair => {
+                    const [key, values] = pair.split(':');
+                    if (key && values) {
+                        attributes.set(key.trim(), values.split(',').map(v => v.trim()));
+                    }
+                });
+            }
+
+            // 3. Variants (optional)
+            const variants = [];
+
+            if (variantsRaw && typeof variantsRaw === 'string') {
+                const variantStrings = variantsRaw.split(';'); // Each variant separated by ;
+
+                for (let str of variantStrings) {
+                    const parts = str.trim().split(',');
+                    const variant = {
+                        attributes: new Map(),
+                        price: null,
+                        stock: null,
+                        image: ''
+                    };
+
+                    let rawImagePath = '';
+
+                    parts.forEach(part => {
+                        const [k, v] = part.split('=').map(s => s.trim()); // Use '=' instead of ':'
+                        if (!k || v === undefined) return;
+
+                        const keyLower = k.toLowerCase();
+
+                        if (keyLower === 'price') {
+                            variant.price = parseFloat(v);
+                        } else if (keyLower === 'stock') {
+                            variant.stock = parseInt(v);
+                        } else if (keyLower === 'image') {
+                            rawImagePath = v;
+                        } else {
+                            variant.attributes.set(k, v);
+                        }
+                    });
+
+                    // Handle image file
+                    if (rawImagePath) {
+                        if (rawImagePath.startsWith('http')) {
+                            variant.image = rawImagePath;
+                        } else {
+                            const publicDir = path.join(process.cwd(), 'public');
+                            const destDir = path.join(publicDir, 'uploads');
+                            if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+                            const ext = path.extname(rawImagePath);
+                            const uniqueName = `${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`;
+                            const destPath = path.join(destDir, uniqueName);
+
+                            if (fs.existsSync(rawImagePath)) {
+                                fs.copyFileSync(rawImagePath, destPath);
+                                variant.image = `/uploads/${uniqueName}`;
+                            } else {
+                                variant.image = rawImagePath;
+                            }
+                        }
+                    }
+
+                    variants.push(variant);
+                }
+            }
+
+            // 4. Reviews (optional)
+            const reviews = [];
+
+            if (reviewsRaw) {
+                // If cell is hyperlink object, extract .text
+                let rawString;
+                if (typeof reviewsRaw === 'object' && reviewsRaw.text) {
+                    rawString = reviewsRaw.text;
+                } else if (typeof reviewsRaw === 'string') {
+                    rawString = reviewsRaw;
+                }
+
+                if (rawString) {
+                    const reviewItems = rawString.split(';').filter(Boolean);
+
+                    for (let item of reviewItems) {
+                        // Each item is: email,rating,comment
+                        const [rawEmail, rating, comment] = item.split(',').map(s => s.trim());
+
+                        const email = rawEmail.replace(/^mailto:/i, '');
+
+                        const user = await User.findOne({ email });
+
+                        if (user && rating) {
+                            reviews.push({
+                                user: user._id,
+                                rating: parseInt(rating),
+                                comment: comment || '',
+                                createdAt: new Date()
+                            });
+                        }
+                    }
+                }
+            }
+
+
+            // 5. Image (optional)
+
+            let image = '';
+            if (imagePathOrUrl && typeof imagePathOrUrl === 'string') {
+                if (!imagePathOrUrl.startsWith('http')) {
+                    const publicDir = path.join(process.cwd(), 'public');
+                    const destDir = path.join(publicDir, 'uploads');
+                    if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+                    const ext = path.extname(imagePathOrUrl);
+                    const uniqueName = `${Date.now()}${ext}`;
+                    const destPath = path.join(destDir, uniqueName);
+
+                    if (fs.existsSync(imagePathOrUrl)) {
+                        fs.copyFileSync(imagePathOrUrl, destPath);
+                        image = `/uploads/${uniqueName}`;
+                    }
+                } else {
+                    image = imagePathOrUrl;
+                }
+            }
+
+
+            // 6. Save product
+            const product = new Product({
+                name,
+                brand,
+                description,
+                price,
+                stock,
+                category: category._id,
+                attributes,
+                variants,
+                reviews,
+                image,
+                averageRating: parseFloat(averageRating) || 0,
+                totalReviews: parseInt(totalReviews) || 0,
+                createdAt: createdAt ? new Date(createdAt) : undefined,
+                updatedAt: updatedAt ? new Date(updatedAt) : undefined
+            });
+
+            await product.save();
+        }
+
+        res.status(200).json({ message: 'Products imported successfully' });
+    } catch (err) {
+        console.error('Excel import failed:', err);
+        res.status(500).json({ message: 'Excel import failed' });
+    }
+};

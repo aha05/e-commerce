@@ -29,13 +29,13 @@ export { default as AddUser } from './Admin/user/AddUser';
 export { default as EditUser } from './Admin/user/EditUser';
 
 export { default as Roles } from './Admin/role/Roles';
-export { default as EditRole } from './Admin/role/EditRole';
 
 export { default as Promotion } from './Admin/promotion/Promotions';
 export { default as AddPromotion } from './Admin/promotion/AddPromotion';
 export { default as EditPromotion } from './Admin/promotion/EditPromotion';
 
 export { default as Report } from './Admin/report/Report';
+export { default as SalesReport } from './Admin/report/SalesReport';
 export { default as Logs } from './Admin/Logs';
 export { default as ManageCustomer } from './Admin/customer/ManageCustomer';
 

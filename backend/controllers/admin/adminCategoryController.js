@@ -1,4 +1,5 @@
 const Category = require('../../models/Category');
+const Product = require('../../models/Product');
 const Logger = require("../../middleware/Logger");
 const path = require("path");
 const fs = require("fs");
@@ -79,5 +80,18 @@ exports.deleteCategory = async (req, res) => {
 
     } catch (error) {
         res.status(500).send('Error deleting category: ' + error.message);
+    }
+}
+
+exports.deleteSelectedCategories = async (req, res) => {
+    try {
+        const { categoryIds } = req.body;
+        await Category.deleteMany({ _id: { $in: categoryIds } });
+        await Product.deleteMany({ category: { $in: categoryIds } });
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting selected Category:', error);
+        res.json({ success: false, message: 'Error deleting selected Category' });
     }
 }

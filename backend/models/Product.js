@@ -30,7 +30,6 @@ const variantSchema = new mongoose.Schema({
     },
     image: {
         type: String,
-        required: true
     },
     price: Number, // Optional override
     stock: Number  // Optional override

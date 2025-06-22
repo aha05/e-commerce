@@ -24,7 +24,24 @@ const orderSchema = new mongoose.Schema({
     discountTotal: Number,
     orderTotal: { type: Number, required: true },
     orderNumber: { type: String, required: true },
-    status: { type: String, default: "Pending" },
+    status: {
+        type: String,
+        enum: ["Pending", "Paid", "Shipped", "Delivered", "Cancelled", "Refunded"],
+        default: "Pending",
+    },
+    refund: {
+        isRefunded: { type: Boolean, default: false },
+        refundedAmount: { type: Number, default: 0 },
+        refundedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        requestedAt: { type: Date, default: Date.now },
+        refundDate: { type: Date, default: null },
+        approved: { type: Boolean, default: false },
+        refundedItems: [{
+            productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+            quantity: { type: Number, default: 1 },
+            reason: { type: String },
+        }]
+    },
 }, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);

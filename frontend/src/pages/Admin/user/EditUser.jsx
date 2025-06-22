@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import toastr from "toastr";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const EditUser = () => {
     const { userId } = useParams(); // Get user ID from URL
@@ -25,9 +26,8 @@ const EditUser = () => {
                 setUser(res.data.user);
                 setSelectedRoles(res.data.user.roles.map(role => role._id));
             })
-            .catch(() => {
-                if (error.response.status === 401) navigate('/unauthorized');
-                toastr.error("Failed to load user data")
+            .catch((error) => {
+                toastr.error(error.response.data.message || 'Error');
             });
 
         // Fetch available roles
@@ -35,10 +35,8 @@ const EditUser = () => {
             .then((res) => {
                 setRoles(res.data.roles)
             })
-            .catch(() => {
-                if (error.response.status === 401) navigate('/unauthorized');
-                toastr.error("Failed to load roles")
-
+            .catch((error) => {
+                toastr.error(error.response.data.message || 'Error');
             });
     }, [userId]);
 
@@ -67,53 +65,54 @@ const EditUser = () => {
             toastr.success("User updated successfully");
             navigate("/admin/users");
         } catch (error) {
-            if (error.response.status === 401) navigate('/unauthorized');
-            toastr.error("Error updating user");
+            toastr.error(error.response.data.message || 'Error');
         }
     };
 
     return (
         <div className="container my-4">
-            <h1>Edit User</h1>
-            <form onSubmit={handleSubmit} encType="multipart/form-data">
+            <p className="fs-5 text-muted mb-3">
+                User Management &gt;  <span>Edit User</span>
+            </p>
+            <form onSubmit={handleSubmit} encType="multipart/form-data" style={{ padding: "0% 20%" }}>
                 <div className="mb-3">
-                    <label className="form-label">Name</label>
+                    <label className="form-label text-muted">Name</label>
                     <input
                         type="text"
                         name="name"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.name}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Username</label>
+                    <label className="form-label text-muted">Username</label>
                     <input
                         type="text"
                         name="username"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.username}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Email</label>
+                    <label className="form-label text-muted">Email</label>
                     <input
                         type="email"
                         name="email"
-                        className="form-control"
+                        className="form-control bg-light"
                         value={user.email}
                         onChange={handleChange}
                         required
                     />
                 </div>
                 <div className="mb-3">
-                    <label className="form-label">Role</label>
+                    <label className="form-label text-muted">Role</label>
                     <select
                         name="roleId"
-                        className="form-select"
+                        className="form-select bg-light"
                         multiple
                         value={selectedRoles}
                         onChange={handleRoleChange}
@@ -129,10 +128,10 @@ const EditUser = () => {
                 <div className="row">
                     {user.image && typeof user.image === "string" && (
                         <div className="col-md-6 mb-3">
-                            <label className="form-label">Profile Image</label>
+                            <label className="form-label text-muted" >Profile Image</label>
                             <div>
                                 <img
-                                    src={user.image}
+                                    src={`${backendUrl}${user.image}`}
                                     alt={user.image}
                                     className="img-fluid rounded"
                                     width="100"
@@ -144,7 +143,7 @@ const EditUser = () => {
                     )}
                 </div>
 
-                <button type="submit" className="btn btn-primary">Update User</button>
+                <button type="submit" className="btn btn-primary"><i className="fas fa-save"></i> Update User</button>
             </form>
         </div>
     );

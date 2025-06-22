@@ -20,7 +20,7 @@ const Navbar = () => {
             <div className="container-fluid">
                 <span className="navbar-brand">Dashboard</span>
                 <ul className="navbar-nav ms-auto">
-                    <Notifications />
+                    <li className="nav-item mt-1 h-100"><Notifications /></li>
                     <li className="nav-item dropdown">
                         <button
                             type="button"
@@ -31,12 +31,13 @@ const Navbar = () => {
                                 src={`${backendUrl}${user.image}`}
                                 alt={user.name}
                                 className="rounded-circle"
-                                width="30"
-                                height="30"
+                                width="27"
+                                height="27"
                             />
                         </button>
                         <ul
                             className={`dropdown-menu dropdown-menu-start ${dropdownOpen ? "show" : ""}`}
+                            style={{  overflowY: 'auto', right: 0, left: 'auto' }}
                         >
                             <li>
                                 <Link className="dropdown-item" to="/admin/profile">

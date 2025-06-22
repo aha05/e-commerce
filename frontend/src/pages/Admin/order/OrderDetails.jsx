@@ -11,11 +11,9 @@ const OrderDetails = () => {
         axios.get(`/api/admin/orders/details/${orderId}`)
             .then((res) => {
                 setOrder(res.data.order);
-                console.log(res.data, "nothing");
             })
-            .catch((err) => {
-                if (error.response.status === 401) navigate('/unauthorized');
-                toastr.error("Error fetching order details")
+            .catch((error) => {
+                toastr.error(error.response.data.message || 'Error');
             });
     }, [orderId]);
 

@@ -4,6 +4,7 @@ const User = require('../../Models/User');
 const Order = require('../../models/Order');
 const Category = require('../../models/Category');
 const Log = require("../../models/Log");
+const { exportToCSV, exportToExcel, exportToPDF } = require('../../utils/exportUtils');
 
 
 
@@ -117,12 +118,21 @@ exports.dashboard = async (req, res) => {
     try {
 
         const orders = await Order.find()
-            .populate('userId');
+            .populate({
+                path: 'items.productId',
+                populate: {
+                    path: 'category', // Assuming Product model has a field like: category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' }
+                    select: 'name'
+                }
+            })
+            .populate('userId');;
 
         const TopCustomers = getTopCustomers(orders);
         const orders1 = await Order.find().populate('items.productId');
         const TopSellingProducts = await getTopSellingProducts(orders1);
-        const TotalRevenue = calculateTotalRevenue(orders1)
+        let TotalRevenue = calculateTotalRevenue(orders1)
+        const totalRefunds = orders.reduce((acc, o) => acc + (o.refund?.refundedAmount || 0), 0);
+        TotalRevenue -= totalRefunds;
         const totalProducts = await Product.countDocuments();
         const totalOrders = await Order.countDocuments();
         const lowStockProducts = await getLowStockProducts()
@@ -248,9 +258,6 @@ const getOrderStatusData = async () => {
 };
 
 exports.report = async (req, res) => {
-    // const hasRole = await User.hasRole(req.user._id, 'admin');
-    // console.log(hasRole);
-
     try {
 
         const sales = await getMonthlySales();
@@ -261,3 +268,542 @@ exports.report = async (req, res) => {
         res.status(500).json({ error: "Failed to fetch data" });
     }
 }
+
+exports.salesReport = async (req, res) => {
+    try {
+        const orders = await Order.find({})
+            .populate({
+                path: 'items.productId',
+                populate: {
+                    path: 'category', // Assuming Product model has a field like: category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category' }
+                    select: 'name'
+                }
+            })
+            .populate('userId');
+        // Filters (if needed later): status, date, etc.
+
+        const totalSales = orders.reduce((acc, o) => acc + o.orderTotal, 0);
+        const totalOrders = orders.length;
+        const avgOrderValue = totalOrders ? totalSales / totalOrders : 0;
+        const totalRefunds = orders.reduce((acc, o) => acc + (o.refund?.refundedAmount || 0), 0);
+        const netSales = totalSales - totalRefunds;
+
+        // Top-selling products
+        const productSalesMap = {};
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const id = item.productId?._id?.toString();
+                if (!id) return;
+
+                if (!productSalesMap[id]) {
+                    productSalesMap[id] = {
+                        name: item.productId.name,
+                        units: 0,
+                        revenue: 0,
+                        returns: 0,
+                    };
+                }
+
+                productSalesMap[id].units += item.quantity;
+                productSalesMap[id].revenue += (item.discountPrice || 0) * item.quantity;
+            });
+
+            if (order.refund?.refundedItems) {
+                order.refund.refundedItems.forEach(refItem => {
+                    const id = refItem.productId.toString();
+                    if (productSalesMap[id]) {
+                        productSalesMap[id].returns += refItem.quantity;
+                    }
+                });
+            }
+        });
+
+        const topProducts = Object.values(productSalesMap)
+            .sort((a, b) => b.units - a.units)
+            .slice(0, 5);
+
+
+        // Sales by category (assuming product.category exists)
+        const categoryMap = {};
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const category = item.productId?.category.name || 'Uncategorized';
+
+                if (!categoryMap[category]) {
+                    categoryMap[category] = { units: 0, revenue: 0 };
+                }
+                categoryMap[category].units += item.quantity;
+                categoryMap[category].revenue += (item.discountPrice || 0) * item.quantity;
+            });
+        });
+
+
+        const salesByCategory = Object.entries(categoryMap).map(([category, data]) => ({
+            category,
+            units: data.units,
+            revenue: data.revenue,
+        })).sort((a, b) => b.units - a.units);
+
+        // Sales by country (assuming user has country or address)
+        const countryMap = {};
+        orders.forEach(order => {
+            const country = order.userId?.address.country || 'Unknown';
+
+            if (!countryMap[country]) {
+                countryMap[country] = { orders: 0, revenue: 0 };
+            }
+            countryMap[country].orders += 1;
+            countryMap[country].revenue += order.orderTotal;
+        });
+
+        const salesByCountry = Object.entries(countryMap).map(([country, data]) => ({
+            country,
+            orders: data.orders,
+            revenue: data.revenue,
+        }));
+
+        // Payment methods
+        const paymentMap = {};
+        orders.forEach(order => {
+            const method = order.paymentMethod || 'Unknown';
+            if (!paymentMap[method]) {
+                paymentMap[method] = { orders: 0, revenue: 0 };
+            }
+            paymentMap[method].orders += 1;
+            paymentMap[method].revenue += order.orderTotal;
+        });
+
+        const salesByPayment = Object.entries(paymentMap).map(([method, data]) => ({
+            method,
+            orders: data.orders,
+            revenue: data.revenue,
+        }));
+
+        // Customer segment (basic: new vs returning)
+        const customerOrders = {};
+        orders.forEach(order => {
+            const userId = order.userId?._id?.toString();
+            if (!userId) return;
+
+            if (!customerOrders[userId]) {
+                customerOrders[userId] = [];
+            }
+            customerOrders[userId].push(order);
+        });
+
+        const salesBySegment = [
+            {
+                segment: "Returning Customers",
+                orders: Object.values(customerOrders).filter(arr => arr.length > 1).flat().length,
+                revenue: Object.values(customerOrders).filter(arr => arr.length > 1).flat().reduce((acc, o) => acc + o.orderTotal, 0),
+                aov: 0,
+            },
+            {
+                segment: "New Customers",
+                orders: Object.values(customerOrders).filter(arr => arr.length === 1).flat().length,
+                revenue: Object.values(customerOrders).filter(arr => arr.length === 1).flat().reduce((acc, o) => acc + o.orderTotal, 0),
+                aov: 0,
+            }
+        ];
+        salesBySegment.forEach(seg => {
+            seg.aov = seg.orders ? seg.revenue / seg.orders : 0;
+        });
+
+        // Transactions table
+        const transactions = orders.map(o => ({
+            id: o.orderNumber || o._id,
+            date: o.createdAt.toISOString().split('T')[0],
+            customer: o.userId?.username || 'Guest',
+            total: o.orderTotal,
+            status: o.status,
+            payment: o.paymentMethod || 'N/A'
+        }));
+
+
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        // Get orders from both months
+        const ordersLastMonth = await Order.find({
+            createdAt: { $gte: startOfLastMonth, $lt: startOfThisMonth }
+        });
+
+        const ordersThisMonth = await Order.find({
+            createdAt: { $gte: startOfThisMonth }
+        });
+
+        const salesLastMonth = ordersLastMonth.reduce((acc, o) => acc + o.orderTotal, 0);
+        const salesThisMonth = ordersThisMonth.reduce((acc, o) => acc + o.orderTotal, 0);
+
+        const salesGrowth = salesLastMonth === 0
+            ? 100
+            : ((salesThisMonth - salesLastMonth) / salesLastMonth * 100).toFixed(2);
+
+        // Final response
+        res.json({
+            totalSales,
+            totalOrders,
+            avgOrderValue,
+            salesGrowth: parseFloat(salesGrowth), // (you can calculate this later)
+            totalRefunds,
+            netSales,
+            topProducts,
+            salesByCategory,
+            salesByCountry,
+            salesByPayment,
+            salesBySegment,
+            transactions
+        });
+
+    } catch (error) {
+        console.error("Error generating sales report:", error);
+        res.status(500).json({ message: "Server error generating sales report" });
+    }
+};
+
+exports.salesFilter = async (req, res) => {
+    try {
+        const { startDate, endDate, status } = req.query;
+        const filter = {};
+
+        if (startDate && endDate) {
+            filter.createdAt = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        } else if (startDate) {
+            filter.createdAt = { $gte: new Date(startDate) };
+        } else if (endDate) {
+            filter.createdAt = { $lte: new Date(endDate) };
+        }
+
+        if (status && status !== 'All Status') {
+            filter.status = status;
+        }
+
+        const orders = await Order.find(filter)
+            .populate({
+                path: 'items.productId',
+                populate: {
+                    path: 'category',
+                    select: 'name'
+                }
+            })
+            .populate('userId');
+
+        const totalSales = orders.reduce((acc, o) => acc + o.orderTotal, 0);
+        const totalOrders = orders.length;
+        const avgOrderValue = totalOrders ? totalSales / totalOrders : 0;
+        const totalRefunds = orders.reduce((acc, o) => acc + (o.refund?.refundedAmount || 0), 0);
+        const netSales = totalSales - totalRefunds;
+
+        const productSalesMap = {};
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const id = item.productId?._id?.toString();
+                if (!id) return;
+
+                if (!productSalesMap[id]) {
+                    productSalesMap[id] = {
+                        name: item.productId.name,
+                        units: 0,
+                        revenue: 0,
+                        returns: 0,
+                    };
+                }
+
+                productSalesMap[id].units += item.quantity;
+                productSalesMap[id].revenue += (item.discountPrice || 0) * item.quantity;
+            });
+
+            if (order.refund?.refundedItems) {
+                order.refund.refundedItems.forEach(refItem => {
+                    const id = refItem.productId.toString();
+                    if (productSalesMap[id]) {
+                        productSalesMap[id].returns += refItem.quantity;
+                    }
+                });
+            }
+        });
+
+        const topProducts = Object.values(productSalesMap)
+            .sort((a, b) => b.units - a.units)
+            .slice(0, 5);
+
+        const categoryMap = {};
+        orders.forEach(order => {
+            order.items.forEach(item => {
+                const category = item.productId?.category.name || 'Uncategorized';
+
+                if (!categoryMap[category]) {
+                    categoryMap[category] = { units: 0, revenue: 0 };
+                }
+                categoryMap[category].units += item.quantity;
+                categoryMap[category].revenue += (item.discountPrice || 0) * item.quantity;
+            });
+        });
+
+        const salesByCategory = Object.entries(categoryMap).map(([category, data]) => ({
+            category,
+            units: data.units,
+            revenue: data.revenue,
+        })).sort((a, b) => b.units - a.units);
+
+        const countryMap = {};
+        orders.forEach(order => {
+            const country = order.userId?.address.country || 'Unknown';
+
+            if (!countryMap[country]) {
+                countryMap[country] = { orders: 0, revenue: 0 };
+            }
+            countryMap[country].orders += 1;
+            countryMap[country].revenue += order.orderTotal;
+        });
+
+        const salesByCountry = Object.entries(countryMap).map(([country, data]) => ({
+            country,
+            orders: data.orders,
+            revenue: data.revenue,
+        }));
+
+        const paymentMap = {};
+        orders.forEach(order => {
+            const method = order.paymentMethod || 'Unknown';
+            if (!paymentMap[method]) {
+                paymentMap[method] = { orders: 0, revenue: 0 };
+            }
+            paymentMap[method].orders += 1;
+            paymentMap[method].revenue += order.orderTotal;
+        });
+
+        const salesByPayment = Object.entries(paymentMap).map(([method, data]) => ({
+            method,
+            orders: data.orders,
+            revenue: data.revenue,
+        }));
+
+        const customerOrders = {};
+        orders.forEach(order => {
+            const userId = order.userId?._id?.toString();
+            if (!userId) return;
+
+            if (!customerOrders[userId]) {
+                customerOrders[userId] = [];
+            }
+            customerOrders[userId].push(order);
+        });
+
+        const salesBySegment = [
+            {
+                segment: "Returning Customers",
+                orders: Object.values(customerOrders).filter(arr => arr.length > 1).flat().length,
+                revenue: Object.values(customerOrders).filter(arr => arr.length > 1).flat().reduce((acc, o) => acc + o.orderTotal, 0),
+                aov: 0,
+            },
+            {
+                segment: "New Customers",
+                orders: Object.values(customerOrders).filter(arr => arr.length === 1).flat().length,
+                revenue: Object.values(customerOrders).filter(arr => arr.length === 1).flat().reduce((acc, o) => acc + o.orderTotal, 0),
+                aov: 0,
+            }
+        ];
+        salesBySegment.forEach(seg => {
+            seg.aov = seg.orders ? seg.revenue / seg.orders : 0;
+        });
+
+        const transactions = orders.map(o => ({
+            id: o.orderNumber || o._id,
+            date: o.createdAt.toISOString().split('T')[0],
+            customer: o.userId?.username || 'Guest',
+            total: o.orderTotal,
+            status: o.status,
+            payment: o.paymentMethod || 'N/A'
+        }));
+
+        const now = new Date();
+        const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+        const ordersLastMonth = await Order.find({
+            createdAt: { $gte: startOfLastMonth, $lt: startOfThisMonth }
+        });
+
+        const ordersThisMonth = await Order.find({
+            createdAt: { $gte: startOfThisMonth }
+        });
+
+        const salesLastMonth = ordersLastMonth.reduce((acc, o) => acc + o.orderTotal, 0);
+        const salesThisMonth = ordersThisMonth.reduce((acc, o) => acc + o.orderTotal, 0);
+
+        const salesGrowth = salesLastMonth === 0
+            ? 100
+            : ((salesThisMonth - salesLastMonth) / salesLastMonth * 100).toFixed(2);
+
+        res.json({
+            totalSales,
+            totalOrders,
+            avgOrderValue,
+            salesGrowth: parseFloat(salesGrowth),
+            totalRefunds,
+            netSales,
+            topProducts,
+            salesByCategory,
+            salesByCountry,
+            salesByPayment,
+            salesBySegment,
+            transactions
+        });
+    } catch (error) {
+        console.error("Error generating sales report:", error);
+        res.status(500).json({ message: "Server error generating sales report" });
+    }
+};
+
+
+exports.export = async (req, res) => {
+    try {
+        const { type, format } = req.params;
+        const { startDate, endDate, status } = req.body;
+
+        const filter = {};
+        if (startDate && endDate) {
+            filter.createdAt = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        } else if (startDate) {
+            filter.createdAt = { $gte: new Date(startDate) };
+        } else if (endDate) {
+            filter.createdAt = { $lte: new Date(endDate) };
+        }
+        if (status && status !== 'All Status') filter.status = status;
+
+        const orders = await Order.find(filter)
+            .populate({
+                path: 'items.productId',
+                populate: { path: 'category', select: 'name' }
+            })
+            .populate('userId');
+
+        let exportData = [];
+        if (type === 'transactions') {
+            exportData = orders.map(o => ({
+                ID: o.orderNumber || o._id,
+                Date: o.createdAt.toISOString().split('T')[0],
+                Customer: o.userId?.username || 'Guest',
+                Total: o.orderTotal,
+                Status: o.status,
+                Payment: o.paymentMethod || 'N/A'
+            }));
+        } else if (type === 'products') {
+            const productSales = {};
+            orders.forEach(order => {
+                order.items.forEach(item => {
+                    const id = item.productId?._id?.toString();
+                    if (!id) return;
+
+                    if (!productSales[id]) {
+                        productSales[id] = {
+                            Product: item.productId.name,
+                            UnitsSold: 0,
+                            Revenue: 0,
+                            Returns: 0,
+                        };
+                    }
+                    productSales[id].UnitsSold += item.quantity;
+                    productSales[id].Revenue += (item.discountPrice || 0) * item.quantity;
+                });
+
+                if (order.refund?.refundedItems) {
+                    order.refund.refundedItems.forEach(refItem => {
+                        const id = refItem.productId.toString();
+                        if (productSales[id]) {
+                            productSales[id].Returns += refItem.quantity;
+                        }
+                    });
+                }
+            });
+            exportData = Object.values(productSales);
+        } else if (type === 'category') {
+            const categoryMap = {};
+            orders.forEach(order => {
+                order.items.forEach(item => {
+                    const category = item.productId?.category?.name || 'Uncategorized';
+                    if (!categoryMap[category]) categoryMap[category] = { Units: 0, Revenue: 0 };
+                    categoryMap[category].Units += item.quantity;
+                    categoryMap[category].Revenue += (item.discountPrice || 0) * item.quantity;
+                });
+            });
+            exportData = Object.entries(categoryMap).map(([category, data]) => ({
+                Category: category,
+                Units: data.Units,
+                Revenue: data.Revenue
+            }));
+        } else if (type === 'country') {
+            const countryMap = {};
+            orders.forEach(order => {
+                const country = order.userId?.address?.country || 'Unknown';
+                if (!countryMap[country]) countryMap[country] = { Orders: 0, Revenue: 0 };
+                countryMap[country].Orders += 1;
+                countryMap[country].Revenue += order.orderTotal;
+            });
+            exportData = Object.entries(countryMap).map(([country, data]) => ({
+                Country: country,
+                Orders: data.Orders,
+                Revenue: data.Revenue
+            }));
+        } else if (type === 'payment') {
+            const paymentMap = {};
+            orders.forEach(order => {
+                const method = order.paymentMethod || 'Unknown';
+                if (!paymentMap[method]) paymentMap[method] = { Orders: 0, Revenue: 0 };
+                paymentMap[method].Orders += 1;
+                paymentMap[method].Revenue += order.orderTotal;
+            });
+            exportData = Object.entries(paymentMap).map(([method, data]) => ({
+                Method: method,
+                Orders: data.Orders,
+                Revenue: data.Revenue
+            }));
+        } else if (type === 'segment') {
+            const customerOrders = {};
+            orders.forEach(order => {
+                const userId = order.userId?._id?.toString();
+                if (!userId) return;
+                if (!customerOrders[userId]) customerOrders[userId] = [];
+                customerOrders[userId].push(order);
+            });
+
+            const newOrders = Object.values(customerOrders).filter(arr => arr.length === 1).flat();
+            const returningOrders = Object.values(customerOrders).filter(arr => arr.length > 1).flat();
+
+            exportData = [
+                {
+                    Segment: 'New Customers',
+                    Orders: newOrders.length,
+                    Revenue: newOrders.reduce((acc, o) => acc + o.orderTotal, 0),
+                },
+                {
+                    Segment: 'Returning Customers',
+                    Orders: returningOrders.length,
+                    Revenue: returningOrders.reduce((acc, o) => acc + o.orderTotal, 0),
+                }
+            ];
+        } else {
+            return res.status(400).send('Invalid report type');
+        }
+
+        // Export based on format
+        if (format === 'csv') return exportToCSV(res, exportData, type);
+        if (format === 'excel') return await exportToExcel(res, exportData, type);
+        if (format === 'pdf') return exportToPDF(res, exportData, type);
+
+        return res.status(400).send('Invalid export format');
+
+    } catch (err) {
+        console.error('Export Error:', err);
+        res.status(500).send('Failed to export report');
+    }
+};
+

@@ -48,21 +48,18 @@ const AddCategory = () => {
 
     return (
         <div className="container my-4">
-            <h3 className="p-2 pb-0 mb-4">
-                Dashboard &gt; Manage Categories &gt; <span className="text-primary">Add New Category</span>
-            </h3>
-            <div className="card">
-                <div className="card-header">
-                    <h4 className="mb-0">Category Details</h4>
-                </div>
+            <p className="fs-5 text-muted mb-4">
+                Manage Categories &gt; <span>Add New Category</span>
+            </p>
+            <div style={{ padding: "0% 20%" }}>
                 <div className="card-body">
                     <form onSubmit={handleSubmit}>
                         <div className="mb-3">
-                            <label className="form-label">Category Name</label>
+                            <label className="form-label text-muted">Category Name</label>
                             <input
                                 type="text"
                                 name="name"
-                                className="form-control"
+                                className="form-control bg-light"
                                 value={formData.name}
                                 onChange={handleChange}
                                 required
@@ -70,10 +67,10 @@ const AddCategory = () => {
                         </div>
 
                         <div className="mb-3">
-                            <label className="form-label">Description</label>
+                            <label className="form-label text-muted">Description</label>
                             <textarea
                                 name="description"
-                                className="form-control"
+                                className="form-control bg-light"
                                 rows="3"
                                 value={formData.description}
                                 onChange={handleChange}
@@ -81,18 +78,18 @@ const AddCategory = () => {
                         </div>
 
                         <div className="mb-3">
-                            <label className="form-label">Category Image</label>
+                            <label className="form-label text-muted">Category Image</label>
                             <input
                                 type="file"
                                 name="image"
-                                className="form-control"
+                                className="form-control bg-light"
                                 accept="image/*"
                                 onChange={handleChange}
                                 required
                             />
                         </div>
 
-                        <button type="submit" className="btn btn-success">
+                        <button type="submit" className="btn btn-primary">
                             <i className="fas fa-save"></i> Add Category
                         </button>
                     </form>

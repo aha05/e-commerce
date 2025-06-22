@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import toastr from "toastr";
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const EditCategory = () => {
     const { categoryId } = useParams();
@@ -54,23 +55,19 @@ const EditCategory = () => {
 
     return (
         <div className="container my-4">
-            <h3 className="mb-2">
-                Dashboard &gt; Manage Category &gt;
-                <span className="text-primary"> Edit Category</span>
-            </h3>
+            <p className="fs-5 text-muted mb-4">
+                Manage Categories &gt; <span>Edit Category</span>
+            </p>
 
-            <div className="card">
-                <div className="card-header">
-                    <h4 className="mb-0">Update Category Details</h4>
-                </div>
+            <div style={{ padding: "0% 20%" }}>
                 <div className="card-body">
                     <form onSubmit={handleSubmit} encType="multipart/form-data">
                         <div className="mb-3">
-                            <label className="form-label">Category Name</label>
+                            <label className="form-label text-muted">Category Name</label>
                             <input
                                 type="text"
                                 name="name"
-                                className="form-control"
+                                className="form-control bg-light"
                                 value={category.name}
                                 onChange={handleChange}
                                 required
@@ -78,10 +75,10 @@ const EditCategory = () => {
                         </div>
 
                         <div className="mb-3">
-                            <label className="form-label">Description</label>
+                            <label className="form-label text-light">Description</label>
                             <textarea
                                 name="description"
-                                className="form-control"
+                                className="form-control bg-light"
                                 rows="3"
                                 value={category.description}
                                 onChange={handleChange}
@@ -91,10 +88,10 @@ const EditCategory = () => {
 
                         <div className="row">
                             <div className="col-md-6 mb-3">
-                                <label className="form-label">Category Image</label>
+                                <label className="form-label text-muted">Category Image</label>
                                 <input
                                     type="file"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     name="image"
                                     accept="image/*"
                                     onChange={handleFileChange}
@@ -105,7 +102,7 @@ const EditCategory = () => {
                                     <label className="form-label">Current Image</label>
                                     <div>
                                         <img
-                                            src={category.image}
+                                            src={`${backendUrl}${category.image}`}
                                             alt={category.image}
                                             className="img-fluid h-100"
                                         />

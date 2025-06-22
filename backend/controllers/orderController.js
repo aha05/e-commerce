@@ -148,7 +148,6 @@ async function cartItemWithSelectedVariant(cart, products) {
     return detailedCart;
 }
 
-
 async function orderItemWithSelectedVariant(order, products) {
     const orderItems = [];
 
@@ -181,9 +180,6 @@ async function orderItemWithSelectedVariant(order, products) {
             ) || null;
         }
 
-
-
-
         orderItems.push({
             productId: {
                 ...product.toObject(),
@@ -205,8 +201,6 @@ async function orderItemWithSelectedVariant(order, products) {
 
     return orderItems;
 }
-
-
 
 async function updateStockAndSendNotifications(itemList) {
     for (const item of itemList) {
@@ -287,6 +281,8 @@ exports.getCheckoutPage = async (req, res) => {
         if (!req.user) {
             return res.status(401).json({ message: "Unauthorized!" });
         } else {
+
+            const user = await User.findById(req.user._id);
             const userId = req.user._id;
 
             // Retrieve the cart for the user from the database
@@ -310,7 +306,8 @@ exports.getCheckoutPage = async (req, res) => {
 
             const productsWithDiscount = await applyDiscount(formattedProducts);
 
-            res.json({ user: req.user, cart: productsWithDiscount });
+
+            res.json({ user, cart: productsWithDiscount });
         }
     } catch (error) {
         console.error("Failed to load checkout page:", error);
@@ -482,3 +479,86 @@ exports.getOrderDetails = async (req, res) => {
         res.status(500).send('Error loading order details');
     }
 }
+
+
+exports.refund = async (req, res) => {
+    const { orderId, refunds } = req.body;
+
+    if (!orderId || !Array.isArray(refunds) || refunds.length === 0) {
+        return res.status(400).json({ message: 'Invalid refund data.' });
+    }
+
+    try {
+        const order = await Order.findById(orderId).populate('items.productId');
+        if (!order) return res.status(404).json({ message: 'Order not found.' });
+
+        // Optional: prevent full refund if already refunded
+        if (order.refund?.isRefunded) {
+            return res.status(400).json({ message: 'This order has already been refunded.' });
+        }
+
+        // Build a Set of already refunded productIds
+        const alreadyRefundedIds = new Set(
+            order.refund?.refundedItems?.map(item => item.productId.toString()) || []
+        );
+
+        const refundedItems = [];
+        let totalRefundedAmount = 0;
+
+        for (const refund of refunds) {
+            const { productId, quantity, reason } = refund;
+
+            if (!productId || !reason || !quantity || quantity <= 0) continue;
+
+            // 🛑 Check if this product was already refunded
+            if (alreadyRefundedIds.has(productId)) {
+                console.log('already been requested');
+                return res.status(400).json({
+                    message: `Refund has already been requested.`
+                });
+            }
+
+            const orderedItem = order.items.find(
+                i => i.productId._id.toString() === productId
+            );
+
+            if (!orderedItem || orderedItem.quantity < quantity) {
+                return res.status(400).json({
+                    message: `Invalid refund quantity for product ${productId}`
+                });
+            }
+
+            const unitPrice = orderedItem.discountPrice || 0;
+            totalRefundedAmount += unitPrice * quantity;
+
+            refundedItems.push({
+                productId,
+                quantity,
+                reason
+            });
+        }
+
+        if (refundedItems.length === 0) {
+            return res.status(400).json({ message: 'No valid refund items provided.' });
+        }
+
+        // Merge previous + new refund items
+        const existingItems = order.refund?.refundedItems || [];
+
+        order.refund = {
+            ...order.refund,
+            refundedItems: [...existingItems, ...refundedItems],
+            refundedAmount: (order.refund?.refundedAmount || 0) + totalRefundedAmount,
+            requestedAt: new Date() // Optionally keep earliest if already exists
+        };
+
+        await order.save();
+
+
+        res.json({ message: 'Refund request submitted successfully.' });
+    } catch (error) {
+        console.error('Refund error:', error);
+        res.status(500).json({ message: 'Server error processing refund.' });
+    }
+};
+

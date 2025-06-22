@@ -56,7 +56,11 @@ exports.postLogin = async (req, res) => {
         const { email, password } = req.body;
 
         // Check if user exists
-        const user = await User.findOne({ email }).populate("roles");
+        const user = await User.findOne({ email }).populate({
+            path: "roles",
+            populate: { path: "permissions", select: "name" },
+        });
+
 
         if (!user || (user.status != 'active')) {
             return res.status(401).json({ message: "Invalid User!" });
@@ -74,13 +78,18 @@ exports.postLogin = async (req, res) => {
             maxAge: 3600000, // 1 hour
         });
 
+        const permissions = user.roles
+            .flatMap((role) => role.permissions.map((p) => p.name))
+            .filter((v, i, arr) => arr.indexOf(v) === i);
+
         res.json({
             message: "Login successful",
             user: {
                 id: user._id,
                 name: user.name,
                 email: user.email,
-                roles: user.roles.map(role => role.name) //! Extract role names
+                roles: user.roles.map(role => role.name), //! Extract role 
+                permissions
             },
         });
     } catch (err) {
@@ -95,8 +104,31 @@ exports.logout = (req, res) => {
 
 exports.session = async (req, res) => {
     try {
-        const user = await User.findById(req.user).select("-password"); // Get user info excluding password
-        res.json({ user });
+        const user = await User.findById(req.user)
+            .select("-password")// Exclude password
+            .populate({
+                path: 'roles',
+                populate: {
+                    path: 'permissions',
+                    select: 'name' // Only select permission name
+                }
+            });
+
+        const permissions = user.roles
+            .flatMap((role) => role.permissions.map((p) => p.name))
+            .filter((v, i, arr) => arr.indexOf(v) === i);
+
+        res.json({
+            user: {
+                _id: user._id,
+                name: user.name,
+                username: user.username,
+                image: user.image,
+                email: user.email,
+                roles: user.roles.map(role => role.name),
+                permissions
+            }
+        });
     } catch (err) {
         res.status(500).json({ error: "Could not fetch user data" });
     }
