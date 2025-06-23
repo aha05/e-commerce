@@ -1,10 +1,4 @@
-// seed.js
-const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const Permission = require('./models/Permission');
-
-const permissions = [
-
+module.exports.permissions = [
     // Dashboard
     { name: 'view_dashboard', description: 'view dashboard' },
     { name: 'view_logs', description: 'view logs' },
@@ -37,72 +31,41 @@ const permissions = [
     { name: 'view_order_details', description: 'view order details' },
     { name: 'manage_orders', description: 'manage orders' },
     { name: 'update_order_status', description: 'update order status' },
-    { name: 'delete_selected_order', description: 'delete selected product' },
-    { name: 'order_pdf_export', description: 'export product in pdf ' },
-    { name: 'order_excel_export', description: 'export product in excel' },
+    { name: 'delete_selected_order', description: 'delete selected order' },
+    { name: 'order_pdf_export', description: 'export order in pdf ' },
+    { name: 'order_excel_export', description: 'export order in excel' },
 
     // 💬 Customers
     { name: 'view_customers', description: 'view customers' },
     { name: 'manage_customers', description: 'manage customers' },
-    { name: 'delete_customers', description: 'delete review' },
+    { name: 'delete_customers', description: 'delete customers' },
 
     // ⚙️ Role & Permission Management
     { name: 'view_roles', description: 'view roles' },
     { name: 'create_role', description: 'create role' },
     { name: 'edit_role', description: 'edit role' },
     { name: 'delete_role', description: 'delete role' },
-    { name: 'assign_roles', description: 'assign permissions' },
-
+    { name: 'assign_roles', description: 'assign roles' },
     { name: 'assign_permissions', description: 'assign permissions' },
     { name: 'view_permissions', description: 'view permissions' },
 
-    // 📈 Reporting & Analytics
+    // 📈 Reporting
     { name: 'view_reports', description: 'view reports' },
     { name: 'view_sales_reports', description: 'view sales reports' },
     { name: 'view_customer_reports', description: 'view customer reports' },
 
-    // 💵 Promotion & Discounts
+    // 💵 Promotion
     { name: 'view_promotion', description: 'view promotion' },
     { name: 'create_promotion', description: 'create promotion' },
     { name: 'edit_promotion', description: 'edit promotion' },
     { name: 'delete_promotion', description: 'delete promotion' },
 
-    // 🛒 Cart/Wishlist
+    // 🛒 Wishlist
     { name: 'view_wishlist', description: 'view wishlist' },
     { name: 'edit_wishlist', description: 'edit wishlist' },
 
-    // ⚠️ System / Admin-only
+    // ⚠️ System
     { name: 'access_admin_panel', description: 'access admin panel' },
     { name: 'manage_settings', description: 'manage settings' },
     { name: 'view_activity_log', description: 'view activity log' },
 ];
-
-
-
-dotenv.config();
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected'))
-    .catch(err => console.error(err));
-
-const seedData = async () => {
-    try {
-        for (const perm of permissions) {
-            const exists = await Permission.findOne({ name: perm.name });
-            if (!exists) {
-                await Permission.create(perm);
-                console.log(`Permission added: ${perm.name}`);
-            } else {
-                console.log(`Permission already exists: ${perm.name}`);
-            }
-        }
-
-        console.log('Permissions seeding completed!');
-        process.exit();
-    } catch (err) {
-        console.error('Error seeding permissions:', err);
-        process.exit(1);
-    }
-};
-
-
-seedData();
