@@ -15,7 +15,7 @@ A full-featured e-commerce application built with the MERN stack (MongoDB, Expre
 - Order history & tracking
 - Refund request option
 - Default payment method handling
-- Multi-currency pricing (USD, EUR, etc.)
+- Multi-currency pricing (USD, EUR, etc.)...
 
 ### 🛠️ Admin
 - Product management (add/edit/delete with soft delete, images, variants)
@@ -33,7 +33,7 @@ A full-featured e-commerce application built with the MERN stack (MongoDB, Expre
   - In-App
   - Email
   - SMS
-  - Sent asynchronously with user preferences
+  - Sent asynchronously with user preferences...
 
 ## 🧱 Tech Stack
 - **Frontend**: React, Bootstrap, Axios, React Router
