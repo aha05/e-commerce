@@ -174,9 +174,9 @@ function Navbar() {
                         </div>
 
                         <div className="d-flex ms-3 align-items-center">
-                            <ul className="navbar-nav ms-auto me-2">
+                            {user && <ul className="navbar-nav ms-auto me-2">
                                 <Notifications />
-                            </ul>
+                            </ul>}
 
                             <div className="dropdown" tabIndex={0}>
                                 <button type="button" className="icon-btn btn p-0 border-0 bg-transparent" onClick={() => setShowUserDropdown(prev => !prev)}>

@@ -399,6 +399,30 @@ exports.postOrder = async (req, res) => {
 
         res.json({ success: true, orderNumber });
 
+        setImmediate(async () => {
+            try {
+                await Promise.all(
+                    notifyUser({
+                        username: req.user.username,
+                        userId: req.user._id,
+                        type: 'order',
+                        title: `#${order.orderNumber} Confirmed`,
+                        message: `Hi ${req.user.name}, your order has been placed successfully. Thank you for shopping with us!`,
+                        meta: {
+                            email: req.user.email,
+                            phone: (req.user.phone || '').toString(),
+                            productIds,
+                            link: `/profile`, // removed extra closing brace
+                        }
+                    })
+                );
+                console.log(`📣 Order confirmation notification sent to ${req.user.name}`);
+            } catch (notifyError) {
+                console.error("❌ Failed to notify user:", notifyError);
+            }
+        });
+
+
     } catch (error) {
         console.error('Order placement failed:', error);
         res.status(500).send('Order placement failed');

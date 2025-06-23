@@ -93,7 +93,7 @@ function Notifications() {
           onClick={() => handleRedirect(n.meta?.link || '/', n._id)}
         >
           <div className="fw-bold">{n.title}</div>
-          <div className="small text-muted">{n.message}</div>
+          <div className="small text-muted text-wrap">{n.message}</div>
           {!n.read && (
             <button
               className="btn btn-sm btn-link text-decoration-none p-0 mt-1 align-self-end"

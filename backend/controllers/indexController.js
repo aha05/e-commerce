@@ -192,8 +192,8 @@ exports.getAllPromotions = async (req, res) => {
 
 
 exports.getTest = async (req, res) => {
+    
     const users = await User.getUsersWithRole('all');
-
     const notifications = await Promise.all(
         users.map(user =>
             notifyUser({

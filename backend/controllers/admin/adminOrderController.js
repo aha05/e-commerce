@@ -5,6 +5,8 @@ const PDFDocument = require('pdfkit');
 const moment = require('moment');
 const path = require("path");
 const fs = require("fs");
+const logger = require('../../utils/logger.js');
+
 
 
 exports.manageOrder = async (req, res) => {
@@ -31,8 +33,15 @@ exports.orderUpdate = async (req, res) => {
         await order.save();
 
         res.json({ message: 'Order status updated successfully.', order });
+        setImmediate(async () => {
+            try {
+                logger.info(`Order status with order number: "${order.orderNumber}" set to "${status}" by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
-        console.error('Error updating order status:', error);
+        logger.error("❌ Error updating order status:", error);
         res.status(500).send('Internal Server Error');
     }
 };
@@ -69,8 +78,15 @@ exports.updateRefund = async (req, res) => {
         await order.save();
 
         res.json({ message: 'Refund approved and marked as refunded.' });
-    } catch (err) {
-        console.error('Refund approval error:', err);
+        setImmediate(async () => {
+            try {
+                logger.info(`Order with order number: "${order.orderNumber}" has been refunded by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
+    } catch (error) {
+        logger.error("❌ Refund approval error:", error);
         res.status(500).json({ message: 'Server error during refund approval' });
     }
 }
@@ -95,10 +111,20 @@ exports.orderDetails = async (req, res) => {
 exports.deleteSelectedOrder = async (req, res) => {
     try {
         const { orderIds } = req.body;
+        const ordersToDelete = await Order.find({ _id: { $in: orderIds } });
         await Order.deleteMany({ _id: { $in: orderIds } });
         res.json({ success: true });
+
+        setImmediate(async () => {
+            try {
+                const names = ordersToDelete.map(order => category.orderNumber).join(', ');
+                logger.info(`📢 Selected orders "${names}" have been removed by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
-        console.error('Error deleting selected Orders:', error);
+        logger.error("❌ Error deleting selected Orders:", error);
         res.json({ success: false, message: 'Error deleting selected Orders' });
     }
 }
@@ -163,8 +189,15 @@ exports.exportExcel = async (req, res) => {
 
         await workbook.xlsx.write(res);
         res.end();
+        setImmediate(async () => {
+            try {
+                logger.info(`orders.xlsx have been exported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (err) {
-        console.error('Excel export error:', err);
+        logger.error("❌ Order Excel export error:", error);
         res.status(500).json({ error: 'Failed to export orders to Excel' });
     }
 };
@@ -212,8 +245,15 @@ exports.exportPDF = async (req, res) => {
         });
 
         doc.end();
+        setImmediate(async () => {
+            try {
+                logger.info(`orders.pdf have been exported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (err) {
-        console.error('PDF export error:', err);
+        logger.error("❌ Error to export orders:", error);
         res.status(500).json({ error: 'Failed to export orders to PDF' });
     }
 };

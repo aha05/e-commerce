@@ -7,8 +7,6 @@ const isAuthorized = require("../../middleware/isAuthorized");
 // Manage Promotions and Discounts
 router.get('/promotions', isAuthorized('admin', 'manager', 'sales'), checkPermission('view_promotion'), adminPromotionController.managePromotion);
 
-router.get('/promotions/add', isAuthorized('admin', 'manager', 'sales'), checkPermission('create_promotion'), adminPromotionController.addPromotion);
-
 router.post('/promotions/add', isAuthorized('admin', 'manager', 'sales'), checkPermission('create_promotion'), adminPromotionController.addPromotionPost);
 
 router.get('/promotions/update/:id', isAuthorized('admin', 'manager', 'sales'), checkPermission('edit_promotion'), adminPromotionController.updatePromotion);

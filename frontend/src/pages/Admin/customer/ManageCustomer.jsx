@@ -5,6 +5,7 @@ import toastr from "toastr";
 import "toastr/build/toastr.min.css";
 import { hasPermission } from '../../../utils/authUtils';
 import { useAuth } from '../../../contexts/AuthContext';
+import DatePicker from "../../../components/UI/DatePicker";
 
 const ManageCustomer = () => {
     const { user } = useAuth();
@@ -131,60 +132,64 @@ const ManageCustomer = () => {
                 <span>Manage Customers</span>
             </p>
 
-            <div className="row">
-                {/* Controls */}
+            <div className="row align-items-end mb-3">
 
-                <div className="row mb-2 col-10">
-                    <div className="col-md-3 mb-2" style={{ width: "35%" }}>
-                        <br />
-                        <input
-                            type="text"
-                            className="form-control"
-                            placeholder="Search by name or email..."
-                            value={searchTerm}
-                            onChange={handleSearch}
+                {/* Search Input */}
+                <div className="col-md-4 mb-2">
+                    <input
+                        type="text"
+                        className="form-control"
+                        placeholder="Search by name or email..."
+                        value={searchTerm}
+                        onChange={handleSearch}
+                    />
+                </div>
+
+                {/* Status Filter */}
+                <div className="col-md-2 mb-2">
+                    <select
+                        className="form-select"
+                        value={statusFilter}
+                        onChange={handleStatusFilterChange}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="blocked">Blocked</option>
+                    </select>
+                </div>
+
+                {/* Rows Per Page */}
+                <div className="col-md-2 mb-2">
+                    <select
+                        className="form-select w-50"
+                        value={rowsPerPage}
+                        onChange={handleRowsPerPageChange}
+                    >
+                        {[10, 15, 20, 25, 50].map((n) => (
+                            <option key={n} value={n}>
+                                {n}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Inline Date Range */}
+                <div className="col-md-4 mb-2">
+                    <div className="d-flex gap-2">
+                        <DatePicker
+                            placeholder="Start Date"
+                            onChange={(dateStr) => handleDateRangeChange("start", dateStr)}
+                        />
+                        <DatePicker
+                            placeholder="End Date"
+                            onChange={(dateStr) => handleDateRangeChange("end", dateStr)}
                         />
                     </div>
-                    <div className="col-md-2 mb-2">
-                        <br />
-                        <select className="form-select" value={statusFilter} onChange={handleStatusFilterChange}>
-                            <option value="all">All Status</option>
-                            <option value="active">Active</option>
-                            <option value="blocked">Blocked</option>
-                        </select>
-                    </div>
-                    <div className="col-md-2 mb-2">
-                        <br />
-                        <select className="form-select w-50 p-2 pb-1" onChange={handleRowsPerPageChange} value={rowsPerPage}>
-                            {[10, 15, 20, 25, 50].map(n => (
-                                <option key={n} value={n}>{n}</option>
-                            ))}
-                        </select>
-                    </div>
-
                 </div>
 
-                {/* Date Range Filter - Right Aligned */}
-                <div className="d-flex justify-content-end mb-2 col-2">
-                    <div>
-                        <label className="form-label text-muted d-block text-start">Date Range</label>
-                        <div className="d-flex mb-2 gap-2">
-                            <input
-                                type="date"
-                                className="form-control"
-                                value={startDate}
-                                onChange={(e) => handleDateRangeChange("start", e.target.value)}
-                            />
-                            <input
-                                type="date"
-                                className="form-control"
-                                value={endDate}
-                                onChange={(e) => handleDateRangeChange("end", e.target.value)}
-                            />
-                        </div>
-                    </div>
-                </div>
             </div>
+
+
 
             {/* Table */}
             <table className="table p-0">

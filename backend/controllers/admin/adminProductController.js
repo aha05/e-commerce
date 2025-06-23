@@ -8,6 +8,8 @@ const PDFDocument = require('pdfkit');
 const moment = require('moment');
 const path = require("path");
 const fs = require("fs");
+const logger = require('../../utils/logger.js');
+
 
 exports.manageProduct = async (req, res) => {
     const products = await Product.find().populate('category');
@@ -83,8 +85,15 @@ exports.addProductPost = async (req, res) => {
         await newProduct.save();
 
         res.status(201).json({ message: "Product added successfully", product: newProduct });
+        setImmediate(async () => {
+            try {
+                logger.info(`New Product "${newProduct.name}" have been added by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (err) {
-        console.error(err);
+        logger.error("❌ Error to add new product:", error);
         res.status(500).json({ error: "Server error" });
     }
 };
@@ -183,8 +192,15 @@ exports.editProductPost = async (req, res) => {
         await Logger(req.user.name, "Product updated", `Updated "<em>${product.name}</em>" from catalog.`, "Success");
 
         res.status(200).json({ success: true, message: "Product updated successfully", product });
+        setImmediate(async () => {
+            try {
+                logger.info(`Product "${product.name}" have been update by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
-        console.error("Error updating product:", error);
+        logger.error("❌ Error updating product:", error);
         res.status(500).json({ success: false, message: "Server error" });
     }
 };
@@ -207,8 +223,16 @@ exports.deleteProduct = async (req, res) => {
         await Product.findByIdAndDelete(req.params.id);
 
         res.status(200).json({ message: "Product deleted successfully!" });
-    } catch (err) {
-        console.error(err);
+
+        setImmediate(async () => {
+            try {
+                logger.info(`Product "${product.name}" have been deleted by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
+    } catch (error) {
+        logger.error("❌ Error deleting product:", error);
         res.status(500).json({ message: 'Server error' });
     }
 };
@@ -216,12 +240,22 @@ exports.deleteProduct = async (req, res) => {
 exports.deleteSelectedProduct = async (req, res) => {
     try {
         const { productIds } = req.body;
+        const productToDelete = await Product.find({ _id: { $in: orderIds } });
         await Product.deleteMany({ _id: { $in: productIds } });
         await Promotion.deleteMany({ product: { $in: productIds } });
 
         res.json({ success: true });
+
+        setImmediate(async () => {
+            try {
+                const names = productToDelete.map(product => product.name).join(', ');
+                logger.info(`📢 Selected Products "${names}" have been removed by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
-        console.error('Error deleting selected products:', error);
+        logger.error("❌ Error deleting selected products:", error);
         res.json({ success: false, message: 'Error deleting selected products' });
     }
 }
@@ -229,7 +263,6 @@ exports.deleteSelectedProduct = async (req, res) => {
 exports.exportExcel = async (req, res) => {
     try {
         const products = await Product.find().populate('category').populate('reviews.user');
-
 
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('Products');
@@ -298,8 +331,16 @@ exports.exportExcel = async (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=products.xlsx');
         await workbook.xlsx.write(res);
         res.end();
+
+        setImmediate(async () => {
+            try {
+                logger.info(`products.xlsx have been exported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
-        console.error('Failed to export Excel:', error);
+        logger.error("❌ Failed to export products Excel:", error);
         res.status(500).json({ message: 'Failed to export Excel' });
     }
 };
@@ -358,8 +399,16 @@ exports.exportPDF = async (req, res) => {
         });
 
         doc.end();
+
+        setImmediate(async () => {
+            try {
+                logger.info(`products.pdf have been exported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to export products:", error);
+            }
+        });
     } catch (err) {
-        console.error('Failed to export PDF:', err);
+        logger.error("❌ Failed to log:", error);
         res.status(500).json({ message: 'Failed to export PDF' });
     }
 };
@@ -555,8 +604,16 @@ exports.importExcel = async (req, res) => {
         }
 
         res.status(200).json({ message: 'Products imported successfully' });
+        
+        setImmediate(async () => {
+            try {
+                logger.info(`products.pdf have been imported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (err) {
-        console.error('Excel import failed:', err);
+        logger.error("❌ Failed to import products Excel:", error);
         res.status(500).json({ message: 'Excel import failed' });
     }
 };

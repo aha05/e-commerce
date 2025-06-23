@@ -5,6 +5,7 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const hasPermission = require('../../utils/hasPermission');
+const logger = require('../../utils/logger.js');
 
 exports.manageRole = async (req, res) => {
     try {
@@ -27,24 +28,16 @@ exports.addRole = async (req, res) => {
         const role = new Role({ name, permissions: permissionIds });
         await role.save();
         res.json({ role })
+        setImmediate(async () => {
+            try {
+                logger.info(`New role ${role.name} added by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error(error);
+        logger.error("❌ Failed to add new role:", error);
         res.status(500).send('Error adding role');
-    }
-}
-
-
-exports.addPermission = async (req, res) => {
-    const { name, description } = req.body;
-    try {
-        const permission = new Permission({ name, description });
-        await permission.save();
-        res.json({ permission });
-
-        // res.redirect('admin/roles');
-    } catch (error) {
-        console.error(error);
-        res.status(500).send('Error adding permission');
     }
 }
 
@@ -54,8 +47,9 @@ exports.updateRole = async (req, res) => {
         const permissions = await Permission.find(); // Fetch all available permissions
         if (!role) return res.status(404).send('Role not found');
         res.json({ role, permissions })
+
     } catch (error) {
-        console.error(error);
+        logger.error("❌ Failed update role", error);
         res.status(500).send('Error fetching role data');
     }
 }
@@ -75,8 +69,16 @@ exports.updateRolePost = async (req, res) => {
         role.permissions = permissionIds; // Update associated permissions
         await role.save();
         res.json({ role })
+
+        setImmediate(async () => {
+            try {
+                logger.info(`Role "${role.name}" updated by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error(error);
+        logger.error("❌ Failed to update role", error);
         res.status(500).send('Error updating role');
     }
 }
@@ -95,14 +97,22 @@ exports.deleteRole = async (req, res) => {
 
         await Role.findByIdAndDelete(req.params.id);
         res.json({ message: 'Role deleted successfully', role });
+
+        setImmediate(async () => {
+            try {
+                logger.info(`Role "${role.name}" deleted by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
         console.error(error);
+        logger.error("❌ Error deleting role", error);
         res.status(500).send('Error deleting role');
     }
 }
 
 exports.assignRole = async (req, res) => {
-    console.log(req.body)
     const { userId, roleId } = req.body;
     try {
         const user = await User.findById(userId);
@@ -110,9 +120,16 @@ exports.assignRole = async (req, res) => {
 
         user.roles.push(roleId); // Add role
         await user.save();
-        res.redirect('/admin/users');
+
+        setImmediate(async () => {
+            try {
+                logger.info(`Role "${user.roles.name}" assigned to ${user.username} by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error(error);
+        logger.error("❌ Error to assign role to user", error);
         res.status(500).send('Error assigning role');
     }
 }
@@ -120,9 +137,7 @@ exports.assignRole = async (req, res) => {
 exports.allUsers = async (req, res) => {
     try {
         const users = await User.find().populate('roles').lean();
-        // const roles = await Role.find();
         res.json({ users });
-        // res.render('admin/user/manageUsers', { user, users, roles });
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).send('Server Error');
@@ -132,7 +147,6 @@ exports.allUsers = async (req, res) => {
 exports.createUser = async (req, res) => {
     const roles = await Role.find()
     res.json(roles);
-    // res.render('admin/user/createUser', { user });
 }
 
 exports.createUserPost = async (req, res) => {
@@ -168,8 +182,16 @@ exports.createUserPost = async (req, res) => {
         const user = new User({ name, username, email, password: hashedPassword, roles: assignedRoles });
         await user.save();
         res.status(201).json({ message: "User created successfully!", user });
+
+        setImmediate(async () => {
+            try {
+                logger.info(`New user "${name}" add by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error('Error adding user:', error);
+        logger.error("❌ Error adding user:", error);
         res.status(500).send('Server Error');
     }
 }
@@ -196,8 +218,16 @@ exports.userUpdate = async (req, res) => {
     try {
         const user = await User.findByIdAndUpdate(id, { status });
         res.json({ user });
+
+        setImmediate(async () => {
+            try {
+                logger.info(`User "${user.name}" has been ${status} by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error('Error updating user status:', error);
+        logger.error("❌ Error updating user status:", error);
         res.status(500).send('Internal Server Error');
     }
 }
@@ -220,8 +250,17 @@ exports.editUserPost = async (req, res) => {
 
         await User.findByIdAndUpdate(req.params.id, { name, username, email, roles: rolesArray });
         res.json({ user });
+
+        setImmediate(async () => {
+            try {
+                logger.info(`User "${user.name}" updated by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
         console.error('Error deleting user:', error);
+        logger.error("❌ Error updating user:", error);
         res.status(500).send('Server Error');
     }
 }
@@ -235,9 +274,17 @@ exports.deleteUser = async (req, res) => {
 
         await User.findByIdAndDelete(req.params.id);
 
-        return res.status(200).json({ message: "User deleted successfully" });
+        res.status(200).json({ message: "User deleted successfully" });
+
+        setImmediate(async () => {
+            try {
+                logger.info(`User "${user.name}" deleted by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log", error);
+            }
+        });
     } catch (error) {
-        console.error('Error deleting user:', error);
+        logger.error("❌ Error deleting user:", error);
         res.status(500).send('Server Error');
     }
 }

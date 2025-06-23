@@ -352,7 +352,7 @@ const ManageOrders = () => {
                                         <option value="Shipped">Shipped</option>
                                         <option value="Delivered">Delivered</option>
                                         <option value="Cancelled">Cancelled</option>
-                                        <option value="Refunded">Refunded</option>
+                                        {order.refund?.isRefunded && <option value="Refunded">Refunded</option>}
                                     </select>
                                 </td>
                             )}

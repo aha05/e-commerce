@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from "react";
 import flatpickr from "flatpickr";
 import "flatpickr/dist/flatpickr.min.css";
 
-const DatePicker = ({ onChange }) => {
+const DatePicker = ({ onChange, placeholder }) => {
     const dateInput = useRef(null);
 
     useEffect(() => {
@@ -21,8 +21,9 @@ const DatePicker = ({ onChange }) => {
     return (
         <input
             type="text"
-            placeholder="Mon D, Year "
+            placeholder={placeholder || "Select date"}
             ref={dateInput}
+            style={{ display: 'none' }}
             className="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
     );

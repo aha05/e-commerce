@@ -2,11 +2,10 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import toastr from "toastr";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import "toastr/build/toastr.min.css";
 import { hasPermission } from '../../../utils/authUtils';
 import { useAuth } from '../../../contexts/AuthContext';
+import DatePicker from "../../../components/UI/DatePicker";
 
 const Promotions = () => {
     const { user } = useAuth();
@@ -62,12 +61,19 @@ const Promotions = () => {
         }
 
         if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+
+            // Normalize to full day range
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+
             results = results.filter(p => {
-                const date = new Date(p.startDate);
-                return date >= startDate && date <= endDate;
+                if (!p.startDate) return false;
+                const promoStartDate = new Date(p.startDate);
+                return promoStartDate >= start && promoStartDate <= end;
             });
         }
-
         if (sortConfig.key) {
             results.sort((a, b) => {
                 let aVal = a[sortConfig.key];
@@ -143,7 +149,7 @@ const Promotions = () => {
                 <div className="col-md-2">
                     <DatePicker
                         selected={startDate}
-                        onChange={setStartDate}
+                        onChange={(dateStr) => setStartDate(dateStr)}
                         placeholderText="Start Date"
                         className="form-control"
                     />
@@ -151,7 +157,7 @@ const Promotions = () => {
                 <div className="col-md-2">
                     <DatePicker
                         selected={endDate}
-                        onChange={setEndDate}
+                        onChange={(dateStr) => setEndDate(dateStr)}
                         placeholderText="End Date"
                         className="form-control"
                     />

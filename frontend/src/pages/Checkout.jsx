@@ -192,9 +192,11 @@ const Checkout = () => {
             <Header />
             <OrderConfirmationModal show={showModal} onClose={() => setShowModal(false)} order={order} />
             <div className="container my-4">
-                <h2 className="text-center m-2">Checkout</h2>
-                <form onSubmit={handleSubmit} className="card p-5">
-                    <h4>Shipping Information</h4>
+                <p className="fs-5 fw-bold text-muted ms-5 ps-5">
+                    <span>Checkout</span>
+                </p>
+                <form onSubmit={handleSubmit} className="card border-0 px-5 mx-5">
+                    <p className="fs-6 fw-semibold text-muted">Shipping Information</p>
                     <div className="row">
                         {[
                             { label: "Full Name", name: "fullName", },
@@ -204,12 +206,12 @@ const Checkout = () => {
                             { label: "Country", name: "country", },
                         ].map(({ label, name }) => (
                             <div className="mb-1 col-6" key={name}>
-                                <label htmlFor={name} className="form-label">{label}</label>
+                                <label htmlFor={name} className="form-label text-muted">{label}</label>
                                 <input
                                     type="text"
                                     name={name}
                                     id={name}
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     required
                                     value={formData[name]}
                                     onChange={handleChange}
@@ -218,14 +220,14 @@ const Checkout = () => {
                         ))}
                     </div>
                     <div className="row">
-                        <div className="col-md-6">
-                            <h4>Payment Options</h4>
-                            <div className="mb-2">
+                        <div className="col-md-6 mt-3">
+                            <span className="fs-6 fw-semibold text-muted">Payment Options</span>
+                            <div className="my-2">
                                 <select
                                     name="paymentMethod"
                                     value={formData.paymentMethod}
                                     onChange={handleChange}
-                                    className="form-select mb-3"
+                                    className="form-select mb-3 bg-light"
                                 >
                                     {paymentMethods.map((pm, index) => {
                                         const label =
@@ -243,37 +245,36 @@ const Checkout = () => {
                                 </select>
                             </div>
                         </div>
-                        <div className="col-md-6">
-                            <h4>Code (Optional)</h4>
-                            <div className="mb-2" >
+                        <div className="col-md-6 mt-3">
+                            <span className="fs-6 fw-semibold text-muted">Code (Optional)</span>
+                            <div className="my-2" >
                                 <input
                                     type="text"
                                     name="code"
                                     id="code"
-                                    className="form-control"
+                                    className="form-control bg-light"
                                     placeholder="Enter Code"
                                     onChange={(e) => setCode(e.target.value)}
                                 />
                             </div>
                         </div>
                     </div>
-                    <h4>Order Summary</h4>
-                    <ul className="list-group mb-3">
+                    <span className="fs-6 fw-semibold text-muted">Order Summary</span>
+                    <ul className="list-group  mb-3 mt-2">
                         {cart.map((item) => (
-                            <li key={item._id} className="list-group-item d-flex justify-content-between">
+                            <li key={item._id} className="list-group-item bg-light d-flex justify-content-between">
                                 <span>{item.name} (Quantity: {item.quantity})</span>
                                 <span>{(item.price * item.quantity).toFixed(2)}{item.currency}</span>
                             </li>
                         ))}
-                        <li className="list-group-item d-flex justify-content-between">
+                        <li className="list-group-item bg-light d-flex justify-content-between">
                             <strong>Total</strong>
                             <strong>
                                 {cart.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2)}{currency}
                             </strong>
                         </li>
                     </ul>
-
-                    <button type="submit" className="btn btn-primary">Place Order</button>
+                    <button type="submit" className="btn btn-primary mb-5" style={{width: "130px"}}>Place Order</button>
                 </form>
             </div>
             {showPaymentMethodModal && (

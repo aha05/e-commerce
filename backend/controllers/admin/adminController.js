@@ -5,7 +5,7 @@ const Order = require('../../models/Order');
 const Category = require('../../models/Category');
 const Log = require("../../models/Log");
 const { exportToCSV, exportToExcel, exportToPDF } = require('../../utils/exportUtils');
-
+const logger = require('../../utils/logger.js');
 
 
 function getTopCustomers(orders, topN = 4) {
@@ -191,7 +191,15 @@ exports.deleteLog = async (req, res) => {
     try {
         await Log.deleteMany({});
         res.status(200).json({ message: "All logs deleted successfully" });
+        setImmediate(async () => {
+            try {
+                logger.info(`📢 All logs cleared by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
     } catch (error) {
+        logger.error("❌ Error clearing logs:", error);
         res.status(500).json({ error: error.message });
     }
 }
@@ -660,7 +668,6 @@ exports.salesFilter = async (req, res) => {
     }
 };
 
-
 exports.export = async (req, res) => {
     try {
         const { type, format } = req.params;
@@ -799,10 +806,18 @@ exports.export = async (req, res) => {
         if (format === 'excel') return await exportToExcel(res, exportData, type);
         if (format === 'pdf') return exportToPDF(res, exportData, type);
 
-        return res.status(400).send('Invalid export format');
+        res.status(400).send('Invalid export format');
 
-    } catch (err) {
-        console.error('Export Error:', err);
+        setImmediate(async () => {
+            try {
+                logger.info(`📢 ${type}.${format} reports has been exported by ${req.user.username}`);
+            } catch (error) {
+                logger.error("❌ Failed to log:", error);
+            }
+        });
+
+    } catch (error) {
+        logger.error("❌ Export Error:", error);
         res.status(500).send('Failed to export report');
     }
 };
