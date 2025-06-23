@@ -42,5 +42,22 @@ A full-featured e-commerce application built with the MERN stack (MongoDB, Expre
 - **Auth**: JWT + session-based guest cart
 - **Uploads**: Multer for product images
 - **Logging**: Winston logger
-- **Exports**: exceljs, pdfkit, json2csv 
+- **Exports**: exceljs, pdfkit, json2csv
+  
+## 🔧 Developer Guide
+Follow these steps to set up the project locally:
+
+```bash
+# 1. Pull the latest code
+git pull origin main
+
+# 2. Install project dependencies
+npm install
+
+# 3. Set up environment variables
+cp .env.example .env
+# Then open `.env` and update values like MONGO_URI, JWT_SECRET, etc.
+
+# 4. Seed initial data (permissions, roles, users)
+node seed.js
 
