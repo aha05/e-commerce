@@ -103,7 +103,7 @@ async function applyDiscount(products) {
 
 exports.getIndex = async (req, res) => {
     try {
-        const products = await Product.find().populate('category');
+        const products = await Product.find({ isDeleted: false }).populate('category');
 
         const categories = await Category.find();
         const promotions = await Promotion.find().populate('product');
@@ -164,35 +164,45 @@ exports.getPromotion = async (req, res) => {
 };
 
 exports.getAllPromotions = async (req, res) => {
-    const promotions = await Promotion.find().sort({ createdAt: -1 }).populate('product');;
+    const now = new Date();
 
-    // Map over promotions and apply discount
-    const updatedPromotions = promotions.map(promo => {
-        const product = promo.product;
+    try {
+        const promotions = await Promotion.find({
+            isActive: true,
+            startDate: { $lte: now },
+            endDate: { $gte: now },
+            type: { $in: ['code', 'hybrid'] },
+        })
+            .sort({ createdAt: -1 })
+            .populate('product');
 
-        // Defensive check in case product is not populated
-        if (!product) return promo;
+        const updatedPromotions = promotions.map(promo => {
+            const product = promo.product;
 
-        const discountAmount = (product.price * promo.discountPercentage) / 100;
-        const discount = product.price - discountAmount;
+            // If product is missing (e.g., deleted), skip or handle fallback
+            if (!product) return promo;
 
-        // Clone promotion and include final price in product
-        return {
-            ...promo.toObject(),
-            product: {
-                ...product.toObject(),
-                discountPrice: parseFloat(discount.toFixed(2)), // round if needed
-            }
-        };
-    });
+            const discountAmount = (product.price * promo.discountPercentage) / 100;
+            const discountPrice = parseFloat((product.price - discountAmount).toFixed(2));
 
-    res.json({ promotions: updatedPromotions });
-}
+            return {
+                ...promo.toObject(),
+                product: {
+                    ...product.toObject(),
+                    discountPrice,
+                },
+            };
+        });
 
-
+        res.json({ promotions: updatedPromotions });
+    } catch (err) {
+        console.error("Failed to fetch promotions:", err);
+        res.status(500).json({ message: "Failed to fetch promotions" });
+    }
+};
 
 exports.getTest = async (req, res) => {
-    
+
     const users = await User.getUsersWithRole('all');
     const notifications = await Promise.all(
         users.map(user =>

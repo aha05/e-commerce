@@ -38,7 +38,7 @@ const CartPage = () => {
             calculateTotal(response.data.cart);
             setCurrency(response?.data?.currency);
         } catch (error) {
-            console.error("Error fetching cart:", error);
+            toastr.error(error?.response?.data?.message || "Error!");
         }
     };
 

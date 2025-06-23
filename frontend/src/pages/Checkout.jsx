@@ -3,25 +3,24 @@ import axios from "axios";
 import Header from "../components/Partials/Header";
 import Footer from "../components/Partials/Footer";
 import OrderConfirmationModal from "../components/UI/OrderConfirmationModal";
-import { useNavigate } from "react-router-dom"; // Import useNavigate
+import { useNavigate } from "react-router-dom";
 import toastr from "toastr";
-
 
 const Checkout = () => {
     const [cart, setCart] = useState([]);
-    const [user, setUser] = useState([]);
+    const [user, setUser] = useState({});
     const [order, setOrder] = useState(null);
-    const [currency, setCurrency] = useState('USD')
+    const [currency, setCurrency] = useState('USD');
     const [settings, setSettings] = useState({});
     const [showModal, setShowModal] = useState(false);
-    const [code, setCode] = useState("")
+    const [code, setCode] = useState("");
     const [formData, setFormData] = useState({
         fullName: "",
         address: "",
         city: "",
         postalCode: "",
         country: "",
-        paymentMethod: "Credit Card",
+        paymentMethod: "",
     });
 
     const [paymentMethods, setPaymentMethods] = useState([]);
@@ -36,10 +35,13 @@ const Checkout = () => {
         bankName: "",
         bankAccount: ""
     });
+
+    const navigate = useNavigate();
+
     useEffect(() => {
         const fetchCart = async () => {
             try {
-                const response = await axios.get("/api/orders/checkout"); // Fetch cart data from backend
+                const response = await axios.get("/api/orders/checkout");
                 setCart(response.data.cart);
                 setUser(response?.data?.user);
             } catch (error) {
@@ -49,27 +51,16 @@ const Checkout = () => {
         fetchCart();
     }, []);
 
-    const navigate = useNavigate(); // Initialize navigation
     useEffect(() => {
         if (user && user.address) {
-
-            const defaultMethodObj = settings?.paymentMethods?.find(method => method.isDefault);
-            let defaultPaymentMethod = "";
-            if (settings?.paymentMethods?.length > 0) {
-                defaultPaymentMethod =
-                    defaultMethodObj?.details.cardLast4 ? `Credit Card (****${defaultMethodObj?.details.cardLast4})` : "" ||
-                        defaultMethodObj?.details.paypalEmail ? `PayPal (${defaultMethodObj?.details.paypalEmail})` : "" ||
-                            defaultMethodObj?.details.bankName ? `Bank Transfer (${defaultMethodObj?.details.bankName})` : "" ||
-                    ""; // fallback to empty if none
-            }
-            setFormData({
+            setFormData(prev => ({
+                ...prev,
                 fullName: `${user.FirstName || ""} ${user.MiddleName || ""} ${user.LastName || ""}`.trim(),
                 address: user.address.address || "",
                 city: user.address.city || "",
                 postalCode: user.address.postalCode || "",
                 country: user.address.country || "",
-                paymentMethod: defaultPaymentMethod,
-            });
+            }));
         }
     }, [user]);
 
@@ -78,7 +69,7 @@ const Checkout = () => {
             try {
                 const res = await axios.get(`/api/settings/${user._id}`);
                 setSettings(res.data);
-                setCurrency(res.data.preferences.currency)
+                setCurrency(res.data.preferences.currency);
             } catch (err) {
                 console.error("Failed to load settings");
             }
@@ -92,12 +83,27 @@ const Checkout = () => {
                 console.error("Failed to load payment methods");
             }
         };
-        if (user) { // ✅ Safely check if user ID exists
+
+        if (user && user._id) {
             fetchSettings();
             fetchPaymentMethods();
         }
-
     }, [user]);
+
+    useEffect(() => {
+        if (paymentMethods.length > 0) {
+            const defaultPM = paymentMethods.find(pm => pm.isDefault);
+            if (defaultPM) {
+                const label = defaultPM.type === "credit_card"
+                    ? `Credit Card (****${defaultPM.details.cardLast4})`
+                    : defaultPM.type === "paypal"
+                        ? `PayPal (${defaultPM.details.paypalEmail})`
+                        : `Bank Transfer (${defaultPM.details.bankName})`;
+
+                setFormData(prev => ({ ...prev, paymentMethod: label }));
+            }
+        }
+    }, [paymentMethods]);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -112,7 +118,7 @@ const Checkout = () => {
 
         if (type === "credit_card") {
             payload.details.cardLast4 = details.number.slice(-4);
-            payload.details.cardBrand = "Visa"; // Or detect dynamically
+            payload.details.cardBrand = "Visa";
         } else if (type === "paypal") {
             payload.details.paypalEmail = details.paypalEmail;
         } else if (type === "bank_transfer") {
@@ -124,14 +130,7 @@ const Checkout = () => {
             await axios.post(`/api/settings/payment/${user._id}`, payload);
             toastr.success("Payment method added");
             setPaymentMethodModal(false);
-            setDetails({
-                number: "",
-                expiry: "",
-                cvv: "",
-                paypalEmail: "",
-                bankName: "",
-                bankAccount: ""
-            });
+            setDetails({ number: "", expiry: "", cvv: "", paypalEmail: "", bankName: "", bankAccount: "" });
             setType("credit_card");
             window.location.reload();
         } catch (error) {
@@ -143,7 +142,6 @@ const Checkout = () => {
         try {
             await axios.delete(`/api/settings/payment/delete/${user._id}/${index}`);
             toastr.success("Payment method removed");
-            fetchPaymentMethods();
             window.location.reload();
         } catch (error) {
             toastr.error(error.response?.data?.message);
@@ -151,11 +149,10 @@ const Checkout = () => {
     };
 
     const handleSubmit = async (e) => {
-
         e.preventDefault();
 
         const orderData = {
-            userId: user ? user._id : '',
+            userId: user?._id || '',
             shippingAddress: formData,
             paymentMethod: formData.paymentMethod,
             code
@@ -179,12 +176,11 @@ const Checkout = () => {
                 setOrder(res.data.order);
                 setShowModal(true);
             } else {
-                alert("you login first");
+                alert("Please log in first.");
             }
         } catch (error) {
             console.error("Error submitting order:", error);
         }
-
     };
 
     return (
@@ -274,7 +270,7 @@ const Checkout = () => {
                             </strong>
                         </li>
                     </ul>
-                    <button type="submit" className="btn btn-primary mb-5" style={{width: "130px"}}>Place Order</button>
+                    <button type="submit" className="btn btn-primary mb-5" style={{ width: "130px" }}>Place Order</button>
                 </form>
             </div>
             {showPaymentMethodModal && (

@@ -1,11 +1,11 @@
 // routes/cartRoutes.js
 const express = require('express');
 const Cart = require('../models/Cart');
+const User = require('../Models/User');
 const Product = require('../models/Product');
 const Promotion = require('../models/Promotion');
 const { convertPrice } = require('../utils/currencyConverter');
 const UserSettings = require('../models/UserSettings');
-
 
 
 
@@ -55,19 +55,23 @@ async function cartItemWithSelectedVariant(cart, products) {
     const detailedCart = [];
 
     for (const cartItem of cart.items) {
+        // ✅ Safely skip if productId is null
+        if (!cartItem.productId || !cartItem.productId._id) continue;
+
         const product = products.find(p => p._id.equals(cartItem.productId._id));
         if (!product) continue;
 
         let variantData = null;
 
-        // Normalize variants and cart attributes
+        // ✅ Normalize and match variant
         if (cartItem.attributes && product.variants?.length > 0) {
             const normalizedVariants = product.variants.map(variant => {
                 const normalizedAttrs = variant.attributes instanceof Map
                     ? Object.fromEntries(variant.attributes)
                     : variant.attributes;
+
                 return {
-                    ...variant.toObject?.() ?? variant,
+                    ...(variant.toObject?.() ?? variant),
                     attributes: normalizedAttrs
                 };
             });
@@ -88,17 +92,15 @@ async function cartItemWithSelectedVariant(cart, products) {
         const price = variantData?.price || product.price;
         const stock = variantData?.stock || product.stock;
 
-        // Check if same product + same attributes already in detailedCart
+        // ✅ Check if same product+attributes exists already
         const existingIndex = detailedCart.findIndex(item =>
             item._id.equals(product._id) &&
             JSON.stringify(item.attributes || {}) === JSON.stringify(variantAttrs)
         );
 
         if (existingIndex !== -1) {
-            // Update quantity if the same variant exists
             detailedCart[existingIndex].quantity += cartItem.quantity;
         } else {
-            // Add new cart item
             detailedCart.push({
                 ...product.toObject(),
                 quantity: cartItem.quantity,
@@ -208,9 +210,14 @@ exports.getCart = async (req, res) => {
 
             res.json({ cart: productsWithDiscount, user: null, currency: req.currency });
         } else {
+            const hasRole = await User.hasRole(req.user._id, ['admin', 'sales', 'manager']);
+            if (hasRole)
+                return res.status(403).json({ error: 'Access denied.' });
 
             const cart = await Cart.findOne({ userId: req.user._id }).populate('items.productId');
-            const productIds = cart.items.map(items => items.productId);
+            const productIds = cart.items
+                .map(item => item.productId)
+                .filter(product => product !== null && product !== undefined);
 
             const products = await Product.find({ _id: { $in: productIds } }).populate('category');
 
@@ -232,7 +239,7 @@ exports.getCart = async (req, res) => {
         }
 
     } catch (err) {
-        console.log('Error retrieving cart');
+        console.log('Error retrieving cart', err);
         res.status(500).send('Error retrieving cart');
     }
 };
@@ -305,6 +312,10 @@ exports.addToCart = async (req, res) => {
 
         }
         else {
+            const hasRole = await User.hasRole(req.user._id, ['admin', 'sales', 'manager']);
+            if (hasRole)
+                return res.status(403).json({ error: 'Access denied.' });
+
             let cart = await Cart.findOne({ userId: req.user._id });
             if (!cart) cart = new Cart({ userId: req.user._id, items: [] });
 

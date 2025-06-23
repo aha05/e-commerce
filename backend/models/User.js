@@ -41,7 +41,7 @@ const userSchema = new mongoose.Schema({
         }
     ],
     googleId: String,
-    roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }]
+    roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }],
 }, { timestamps: true });
 
 userSchema.statics.getAdminUser = async function () {

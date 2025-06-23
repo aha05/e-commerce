@@ -55,6 +55,7 @@ exports.getProductById = async (req, res) => {
     }
 
     const products = await Product.find({
+        isDeleted: false,
         category: product.category._id,
         _id: { $ne: product._id } // Exclude the original product from the list
     }).populate('category');
@@ -95,7 +96,7 @@ exports.getProductByCategory = async (req, res) => {
         const categoryId = req.params.categoryId;
 
         // Find products in the given category
-        const products = await Product.find({ category: categoryId }).populate('category');
+        const products = await Product.find({ isDeleted: false, category: categoryId }).populate('category');
 
         if (!products) {
             return res.status(404).send('No products found for this category');

@@ -12,7 +12,7 @@ const logger = require('../../utils/logger.js');
 
 
 exports.manageProduct = async (req, res) => {
-    const products = await Product.find().populate('category');
+    const products = await Product.find({ isDeleted: false }).populate('category');
     res.json({ products });
 }
 
@@ -212,53 +212,70 @@ exports.deleteProduct = async (req, res) => {
             return res.status(404).json({ message: "Product not found!" });
         }
 
-        // Remove the associated image file
+        // Soft delete: mark as deleted instead of removing document
+        product.isDeleted = true;
+        await product.save();
+
+        // Remove associated image file if it exists
         if (product.image) {
             const imagePath = path.join(__dirname, "..", "public", product.image);
             if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath); // Delete file
+                try {
+                    fs.unlinkSync(imagePath); // Delete image file
+                } catch (err) {
+                    console.warn(`Warning: Unable to delete image file at ${imagePath}`, err);
+                }
             }
         }
 
-        await Product.findByIdAndDelete(req.params.id);
+        res.status(200).json({ message: "Product archived successfully!" });
 
-        res.status(200).json({ message: "Product deleted successfully!" });
-
+        // Log asynchronously without blocking response
         setImmediate(async () => {
             try {
-                logger.info(`Product "${product.name}" have been deleted by ${req.user.username}`);
+                logger.info(`Product "${product.name}" was archived by ${req.user.username}`);
             } catch (error) {
                 logger.error("❌ Failed to log:", error);
             }
         });
     } catch (error) {
-        logger.error("❌ Error deleting product:", error);
-        res.status(500).json({ message: 'Server error' });
+        logger.error("❌ Error archiving product:", error);
+        res.status(500).json({ message: "Server error" });
     }
 };
 
 exports.deleteSelectedProduct = async (req, res) => {
     try {
         const { productIds } = req.body;
-        const productToDelete = await Product.find({ _id: { $in: orderIds } });
-        await Product.deleteMany({ _id: { $in: productIds } });
+
+        // Find products to archive
+        const productsToArchive = await Product.find({ _id: { $in: productIds } });
+
+        // Soft delete: update isDeleted flag instead of removing
+        await Product.updateMany(
+            { _id: { $in: productIds } },
+            { $set: { isDeleted: true } }
+        );
+
+        // Remove related promotions for these products
         await Promotion.deleteMany({ product: { $in: productIds } });
 
         res.json({ success: true });
 
+        // Async logging
         setImmediate(async () => {
             try {
-                const names = productToDelete.map(product => product.name).join(', ');
-                logger.info(`📢 Selected Products "${names}" have been removed by ${req.user.username}`);
+                const names = productsToArchive.map(p => p.name).join(', ');
+                logger.info(`📢 Selected products "${names}" have been archived by ${req.user.username}`);
             } catch (error) {
                 logger.error("❌ Failed to log:", error);
             }
         });
     } catch (error) {
-        logger.error("❌ Error deleting selected products:", error);
-        res.json({ success: false, message: 'Error deleting selected products' });
+        logger.error("❌ Error archiving selected products:", error);
+        res.json({ success: false, message: 'Error archiving selected products' });
     }
-}
+};
 
 exports.exportExcel = async (req, res) => {
     try {
@@ -604,7 +621,7 @@ exports.importExcel = async (req, res) => {
         }
 
         res.status(200).json({ message: 'Products imported successfully' });
-        
+
         setImmediate(async () => {
             try {
                 logger.info(`products.pdf have been imported by ${req.user.username}`);

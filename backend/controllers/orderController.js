@@ -281,6 +281,9 @@ exports.getCheckoutPage = async (req, res) => {
         if (!req.user) {
             return res.status(401).json({ message: "Unauthorized!" });
         } else {
+            const hasRole = await User.hasRole(req.user._id, ['admin', 'sales', 'manager']);
+            if (hasRole)
+                return res.status(403).json({ error: 'Access denied.' });
 
             const user = await User.findById(req.user._id);
             const userId = req.user._id;
@@ -319,9 +322,16 @@ exports.postOrder = async (req, res) => {
     try {
         if (!req.user) return res.status(401).send('Invalid user!');
 
+        const hasRole = await User.hasRole(req.user._id, ['admin', 'sales', 'manager']);
+        if (hasRole)
+            return res.status(403).json({ error: 'Access denied.' });
+
         const { shippingAddress, paymentMethod, code } = req.body;
         const userId = req.user._id;
 
+        if (!shippingAddress || !paymentMethod) {
+            return res.status(400).json({ error: 'Missing required Fields!' });
+        }
 
         const cart = await Cart.findOne({ userId }).populate('items.productId'); // `populate` will load product details
         const productIds = cart.items.map(items => items.productId);
